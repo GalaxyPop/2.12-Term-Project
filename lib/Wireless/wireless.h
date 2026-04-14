@@ -28,6 +28,9 @@ struct RobotMessage {
     float y;
     float theta;
 
+    float a; // x position of arm end effector in robot frame
+    float b; // y position of arm end effector in robot frame
+
     void print();
     bool operator==(const RobotMessage& other);
 } ;

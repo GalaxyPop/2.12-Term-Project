@@ -13,4 +13,16 @@ void printTabs(uint8_t nTabs) {
       if (Serial)
         Serial.print("\t");
     }
-} 
+}
+
+double mapStick(double v, double MIN, double MAX) {
+
+    // dead zone
+    if (fabs(v) < 0.1) return 0;
+
+    if (v > 0) {
+        return mapDouble(v, 0, 1.0, MIN, MAX);
+    } else {
+        return mapDouble(v, -1.0, 0, -MAX, -MIN);
+    }
+}

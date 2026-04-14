@@ -4,7 +4,7 @@
 #include "wireless.h"
 
 // #define PRINT_CONTROLLER
-#define PRINT_ROBOT
+// #define PRINT_ROBOT
 
 const uint8_t * peerAddr = robotAddr;
 esp_now_peer_info_t peerInfo;

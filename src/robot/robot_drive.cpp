@@ -10,14 +10,15 @@ MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 0}, {A_DIR2, A_PWM2, 1},
 
 EncoderVelocity encoders[NUM_MOTORS] = { {ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_312_RPM, 0.2},
                                          {ENCODER2_A_PIN, ENCODER2_B_PIN, CPR_312_RPM, 0.2},
-                                         {ENCODER3_A_PIN, ENCODER3_B_PIN, CPR_312_RPM, 0.2}, 
+                                         {ENCODER3_A_PIN, ENCODER3_B_PIN, CPR_312_RPM, 0.2},
                                          {ENCODER4_A_PIN, ENCODER4_B_PIN, CPR_312_RPM, 0.2} };
 
-PID pids[NUM_MOTORS] = { {Kp, Ki, Kd, 0, pidTau, false}, {Kp, Ki, Kd, 0, pidTau, false}, 
+PID pids[NUM_MOTORS] = { {Kp, Ki, Kd, 0, pidTau, false}, {Kp, Ki, Kd, 0, pidTau, false},
                          {Kp, Ki, Kd, 0, pidTau, false}, {Kp, Ki, Kd, 0, pidTau, false} };
 
 double setpoints[NUM_MOTORS] = {0, 0, 0, 0};
 double velocities[NUM_MOTORS] = {0, 0, 0, 0};
+double positions[NUM_MOTORS] = {0, 0, 0, 0};
 double controlEfforts[NUM_MOTORS] = {0, 0, 0, 0};
 
 void setupDrive(){
@@ -25,17 +26,25 @@ void setupDrive(){
         motors[i].setup();
 }
 
-void updateSetpoints(double left, double right) {
-    setpoints[0] = left;
+void updateSetpoints(double left, double right, double t1, double t2) {
+    setpoints[0] = t1;
     setpoints[1] = right;
     setpoints[2] = left;
-    setpoints[3] = right;
+    setpoints[3] = t2;
 }
 
 void updatePIDs() {
     for (uint8_t i = 0; i < NUM_MOTORS; i++) {
-        velocities[i] = pow(-1, i) * encoders[i].getVelocity();
-        controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
+        velocities[i] = pow(-1, i) * encoders[i].getVelocity(); // in rad/s
+        positions[i] = pow(-1, i) * encoders[i].getPosition(); // in rad
+
+        // use velocity for driving and position for link control
+        if (i == 0 || i == 3) {
+            controlEfforts[i] = pids[i].calculateParallel(positions[i], setpoints[i]);
+        } else if (i == 1 || i == 2) {
+            controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
+        }
+
         motors[i].drive(controlEfforts[i]);
     }
 }

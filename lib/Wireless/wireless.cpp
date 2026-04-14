@@ -11,7 +11,7 @@ void ControllerMessage::print() {
     Serial.printf("buttonL: %s\n", buttonL);
     Serial.printf("buttonR: %s\n", buttonR);
     Serial.printf("touchPoint:\n"); touchPoint.print(1);
-} 
+}
 
 bool ControllerMessage::operator==(const ControllerMessage& other) {
     return joystick1 == other.joystick1 &&
@@ -28,12 +28,17 @@ void RobotMessage::print() {
     Serial.printf("x: %.2f\n", x);
     Serial.printf("y: %.2f\n", y);
     Serial.printf("theta: %.2f\n", theta);
-} 
+
+    Serial.printf("a: %.2f\n", a); // x position of arm end effector in robot frame
+    Serial.printf("b: %.2f\n", b); // y position of arm end effector in robot frame
+}
 
 bool RobotMessage::operator==(const RobotMessage& other) {
     return x == other.x &&
            y == other.y &&
-           theta == other.theta;
+           theta == other.theta &&
+           a == other.a && // x position of arm end effector in robot frame
+           b == other.b;   // y position of arm end effector in robot frame
 }
 
 void setupWireless() {
@@ -51,13 +56,13 @@ void setupWireless() {
     // data is sent or received
 	esp_now_register_send_cb(onSendData);
 	esp_now_register_recv_cb(onRecvData);
-    
+
     // Register peer
     memcpy(peerInfo.peer_addr, peerAddr, 6);
-    peerInfo.channel = 0;  
+    peerInfo.channel = 0;
     peerInfo.encrypt = false;
-  
-    // Add peer        
+
+    // Add peer
     if (esp_now_add_peer(&peerInfo) != ESP_OK){
     	if (Serial) Serial.println("Failed to add peer");
     	return;

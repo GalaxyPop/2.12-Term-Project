@@ -3,22 +3,22 @@
 
 //motor pins
 #define NUM_MOTORS 4
-#define A_DIR1 39
-#define A_PWM1 41
-#define A_DIR2 40
-#define A_PWM2 42
-#define B_DIR1 34
-#define B_PWM1 7
-#define B_DIR2 3
-#define B_PWM2 6
+#define A_DIR1 39 // link 1
+#define A_PWM1 41 // link 1
+#define A_DIR2 40 // motors A2 and B1 are considered the 2 rear motors
+#define A_PWM2 42 //
+#define B_DIR1 34 //
+#define B_PWM1 7 // motors A2 and B1 are considered the 2 rear motors
+#define B_DIR2 3 // link 2
+#define B_PWM2 6 // link 2
 
 //encoder pins
 #define ENCODER1_A_PIN 1
 #define ENCODER1_B_PIN 2
-#define ENCODER2_A_PIN 4
-#define ENCODER2_B_PIN 5
-#define ENCODER3_A_PIN 21
-#define ENCODER3_B_PIN 38
+#define ENCODER2_A_PIN 4 // Encoders 2 and 3 are considered the 2 rear motors
+#define ENCODER2_B_PIN 5 //
+#define ENCODER3_A_PIN 21 //
+#define ENCODER3_B_PIN 38 // Encoders 2 and 3 are considered the 2 rear motors
 #define ENCODER4_A_PIN 16
 #define ENCODER4_B_PIN 15
 
