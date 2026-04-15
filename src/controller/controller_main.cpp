@@ -24,10 +24,18 @@ void setup() {
 
 void loop() {
     // Read and send controller sensors
+
+    // Serial.println(controllerMessage.joystick1.x);
+    // Serial.println(controllerMessage.joystick1.y);
+    // Serial.println(controllerMessage.joystick2.x);
+    // Serial.println(controllerMessage.joystick2.y);
+
     EVERY_N_MILLIS(50) {
         controllerMessage.millis = millis();
         controllerMessage.joystick1 = joystick1.read();
         controllerMessage.joystick2 = joystick2.read(); // added second joystick reading
+
+        Serial.println(controllerMessage.joystick1.x);
 
         if (!(prevControllerMessage == controllerMessage)) {
             sendControllerData();

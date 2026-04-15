@@ -53,8 +53,8 @@ void followTrajectory() {
         double y_pos = mapStick(controllerMessage.joystick2.y, MIN_DIST, MAX_DIST);
 
         targetXY = {x_pos, y_pos};
+        targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
         targetPose = inverseKinematics(targetXY);
-        targetXY = getClosestPointInWorkspace(targetXY);
 
         updateSetpoints(forward + turn, forward - turn, targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
     }
