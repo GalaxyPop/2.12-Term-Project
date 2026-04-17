@@ -55,7 +55,7 @@
     _integral = constrain(_integral, _integralMin, _integralMax); // Prevent integral windup
 
     double derivative = (error - _previousError) / dt; // Derivative term
-    
+
     derivative = _alpha * _lastDerivative + (1 - _alpha) * derivative; // Apply low-pass filter
     _lastDerivative = derivative;
 
@@ -78,13 +78,13 @@
     _integral = constrain(_integral, _integralMin, _integralMax); // Prevent integral windup
 
     // double output = _Kp * (error + _Ki * _integral + _Kd * derivative); // Calculate pseudo-parallel PID output
-    
+
     double output = _Kp * error + _Ki * _integral + _Kd * derivative; // Calculate true parallel PID output
     _previousError = error;
 
     return output;
   }
-  
+
 
   // Serial form PID calculation
   double PID::calculateSerial(double input, double setpoint) {
@@ -97,11 +97,11 @@
     double error = _setpoint - input;               // Calculate error
     _integral += (1.0 / _Ki) * error * dt;          // Integral term
     _integral = constrain(_integral, _integralMin, _integralMax); // Prevent integral windup
-  
+
     double derivative = ((_integral + error) - _previousError) / dt; // Derivative term
     derivative = _alpha * _lastDerivative + (1 - _alpha) * derivative; // Apply low-pass filter
     _lastDerivative = derivative;
-    
+
     double output = _Kp * (error + _integral) * _Kd * derivative; // Calculate serial PID output
     _previousError = _integral + error;
 
@@ -119,7 +119,7 @@
     double error = _setpoint - input;               // Calculate error
     _integral += (1.0 / _Ki) * error * dt;          // Integral term
     _integral = constrain(_integral, _integralMin, _integralMax); // Prevent integral windup
-    
+
     double output = _Kp * (error + _integral) * _Kd * derivative; // Calculate serial PID output
     _previousError = _integral + error;
 
@@ -137,5 +137,3 @@
     _previousTime = currentTime;
     return timeDifference;
   }
-
-

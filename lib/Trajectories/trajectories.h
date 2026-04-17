@@ -22,6 +22,7 @@ TaskSpace spiral(TaskSpace nominalPosition, double frequency, double radius, uin
 TaskSpace joystickControl(TaskSpace targetPosition, JoystickReading joystickReading, unsigned long time);
 TaskSpace updateSetpoint(TaskSpace initialPosition, TaskSpace nominalPosition, TaskSpace actualPosition, TrajectoryType trajectoryType, unsigned long time);
 TaskSpace getClosestPointInWorkspace(TaskSpace position);
+TaskSpace createBarrier(TaskSpace position);
 
 extern JoystickReading joystickReading;
 #endif

@@ -35,7 +35,10 @@ void loop() {
         controllerMessage.joystick1 = joystick1.read();
         controllerMessage.joystick2 = joystick2.read(); // added second joystick reading
 
-        Serial.println(controllerMessage.joystick1.x);
+        EVERY_N_MILLIS(200) {
+            Serial.println(controllerMessage.joystick1.x);
+            Serial.println(controllerMessage.joystick2.y);
+        }
 
         if (!(prevControllerMessage == controllerMessage)) {
             sendControllerData();

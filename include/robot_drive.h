@@ -3,9 +3,12 @@
 
 #define NUM_MOTORS 4
 
-#define Kp 0.25
-#define Ki 0.01
-#define Kd 0
+#define Kp_wheels 0.25
+#define Ki_wheels 0.01
+#define Kd_wheels 0
+#define Kp_arm 1
+#define Ki_arm 0.01
+#define Kd_arm 0.05
 #define pidTau 0.1
 
 #define MAX_FORWARD 6

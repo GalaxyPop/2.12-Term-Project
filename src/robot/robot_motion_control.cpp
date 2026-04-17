@@ -9,8 +9,8 @@
 
 // #define UTURN
 // #define CIRCLE
-// #define JOYSTICK
-#define YOUR_TRAJECTORY
+#define JOYSTICK
+// #define YOUR_TRAJECTORY
 // #define VERTICAL_LINE
 
 extern RobotMessage robotMessage;
@@ -50,11 +50,11 @@ void followTrajectory() {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
-        double x_pos = mapStick(controllerMessage.joystick2.x, MIN_DIST, MAX_DIST);
-        double y_pos = mapStick(controllerMessage.joystick2.y, MIN_DIST, MAX_DIST);
+        double x_pos = abs(controllerMessage.joystick2.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick2.x, -1, 1, -MAX_DIST, MAX_DIST);
+        double y_pos = abs(controllerMessage.joystick2.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick2.y, -1, 1, -MAX_DIST, MAX_DIST);
 
         targetXY = {x_pos, y_pos};
-        targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
+        targetXY = createBarrier(targetXY); // creates a barrier such that arm won't hit robot body
         targetPose = inverseKinematics(targetXY);
 
         updateSetpoints(forward + turn, forward - turn, targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
@@ -114,7 +114,7 @@ void followTrajectory() {
     #endif
 
     #ifdef YOUR_TRAJECTORY
-    updateSetpoints(0, 0, 0, 0);
+    updateSetpoints(0, 0, 0, );
     #endif
 
 
