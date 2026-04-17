@@ -17,9 +17,9 @@ extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
 
 // based off of initial position of robot arm being straight up, so theta1 is 90 deg and theta2 is 0 deg
-JointSpace targetPose = {THETA1_OFFSET, 0.0}; //initial setpoint
-TaskSpace targetXY = {0, L1 + L2}; //initial position of end effector
-TaskSpace nominalPosition = {0.5*(L1 + L2), 0}; //nominal position of end effector for trajectories
+JointSpace targetPose = {THETA1_OFFSET, THETA2_OFFSET}; //initial setpoint
+TaskSpace targetXY = forwardKinematics(targetPose); //initial position of end effector
+TaskSpace nominalPosition = {0.5*(L1 + L2), 0}; //nominal position of end effector for custom trajectories
 
 int state = 0;
 double robotVelocity = 0; // velocity of robot, in m/s
