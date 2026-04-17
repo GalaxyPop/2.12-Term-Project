@@ -2,13 +2,16 @@
 #define ROBOT_PINOUT_H
 
 //motor pins
+// A1 is link 1, A2 is right wheel motor, B1 is left wheel motor, B2 is link 2
+// if you are going to change the pinouts here, be sure to change updateSetpoints()
+// and updatePIDs() functions in src/robot/robot_drive.cpp
 #define NUM_MOTORS 4
 #define A_DIR1 39 // link 1
 #define A_PWM1 41 // link 1
-#define A_DIR2 40 // motors A2 and B1 are considered the 2 rear motors
-#define A_PWM2 42 //
-#define B_DIR1 34 //
-#define B_PWM1 7 // motors A2 and B1 are considered the 2 rear motors
+#define A_DIR2 40 // right wheel motor
+#define A_PWM2 42 // right wheel motor
+#define B_DIR1 34 // left wheel motor
+#define B_PWM1 7 // left wheel motor
 #define B_DIR2 3 // link 2
 #define B_PWM2 6 // link 2
 

@@ -11,6 +11,11 @@ void setup() {
 }
 
 void loop() {
+    // Serial.println(freshWirelessData);
+    // if (freshWirelessData) {
+    //     freshWirelessData = false;
+    //     Serial.println(controllerMessage.joystick1.x);
+    // }
     // Update velocity setpoints based on trajectory at 50Hz
     EVERY_N_MILLIS(20) {
         followTrajectory();

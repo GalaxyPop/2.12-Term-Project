@@ -46,6 +46,7 @@ void followTrajectory() {
 
     #ifdef JOYSTICK
     if (freshWirelessData) {
+        freshWirelessData = false;
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
