@@ -10,4 +10,7 @@
 #define TFT_CS_PIN 12
 #define TFT_DC_PIN 13
 
+// Servo Analog pin
+#define SERVO A0
+
 #endif // CONTROLLER_PINOUT_H
