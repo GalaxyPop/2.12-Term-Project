@@ -5,7 +5,7 @@
 #include "robot_motion_control.h"
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin();
     setupDrive();
     setupWireless();
 }

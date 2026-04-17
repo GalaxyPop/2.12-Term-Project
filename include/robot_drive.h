@@ -14,5 +14,7 @@
 void setupDrive();
 void updateSetpoints(double left, double right, double t1, double t2);
 void updatePIDs();
+void updateArms(int i);
+void updateWheels(int i);
 
 #endif // ROBOT_DRIVE_H

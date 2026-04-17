@@ -9,8 +9,8 @@
 
 // #define UTURN
 // #define CIRCLE
-#define JOYSTICK
-// #define YOUR_TRAJECTORY
+// #define JOYSTICK
+#define YOUR_TRAJECTORY
 // #define VERTICAL_LINE
 
 extern RobotMessage robotMessage;
@@ -114,61 +114,9 @@ void followTrajectory() {
     #endif
 
     #ifdef YOUR_TRAJECTORY
-    switch (state) {
-        case 0:
-            // Until robot has achieved an x translation of 0.5 m:
-            if (robotMessage.x <= 0.5) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        case 1:
-            // Until robot has achieved a 90 deg turn in theta:
-            if (robotMessage.theta <= M_PI/2) {
-                // Turn in a circle with radius 25 cm
-                robotVelocity = 0.2;
-                k = 1 / 0.25;
-            } else {
-                state++;
-            }
-            break;
-
-        case 2:
-            // Until robot has backed up a 90 deg turn in theta:
-            if (robotMessage.theta <= M_PI) {
-                // Turn in a circle with radius 25 cm
-                robotVelocity = -0.2;
-                k = -1 / 0.25;
-            } else {
-                state++;
-            }
-            break;
-
-        case 3:
-            // Until robot has achieved an x translation of -0.5 m:
-            if (robotMessage.x >= 0) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        default:
-            // If not in any of the states, robot should just stop
-            robotVelocity = 0;
-            k = 0;
-            break;
-    }
-    setWheelVelocities(robotVelocity, k);
+    updateSetpoints(0, 0, 0, 0);
     #endif
+
 
     // control arm joints to do vertical line
     #ifdef VERTICAL_LINE

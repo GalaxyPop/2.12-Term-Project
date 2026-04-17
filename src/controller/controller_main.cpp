@@ -12,7 +12,7 @@ Joystick joystick1(JOYSTICK1_X_PIN, JOYSTICK1_Y_PIN);
 Joystick joystick2(JOYSTICK2_X_PIN, JOYSTICK2_Y_PIN);
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin();
 
     setupWireless();
 

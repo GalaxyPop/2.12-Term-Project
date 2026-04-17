@@ -23,7 +23,7 @@ double velocities[NUM_MOTORS] = {0, 0, 0, 0};
 double initial_position[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
 double positions[NUM_MOTORS] = {0, 0, 0, 0};
 double controlEfforts[NUM_MOTORS] = {0, 0, 0, 0};
-double sign[NUM_MOTORS] = {1, -1, 1, 1}; // depends on orientation of motor positive direction
+double sign[NUM_MOTORS] = {1, -1, 1, -1}; // depends on orientation of motor positive direction
 
 void setupDrive(){
     for (uint8_t i = 0; i < NUM_MOTORS; i++)
@@ -38,17 +38,20 @@ void updateSetpoints(double left, double right, double t1, double t2) {
 }
 
 void updatePIDs() {
-    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
-        velocities[i] = sign[i] * encoders[i].getVelocity(); // in rad/s
-        positions[i] = initial_position[i] + sign[i] * encoders[i].getPosition(); // in rad
+    updateArms(0); // link 1
+    updateArms(3); // link 2
+    updateWheels(1); // right wheel
+    updateWheels(2); // left wheel
+}
 
-        // use velocity for driving and position for link control
-        if (i == 0 || i == 3) {
-            controlEfforts[i] = pids[i].calculateParallel(positions[i], setpoints[i]);
-        } else if (i == 1 || i == 2) {
-            controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
-        }
+void updateArms(int i) {
+    positions[i] = initial_position[i] + sign[i] * encoders[i].getPosition(); // in rad
+    controlEfforts[i] = pids[i].calculateParallel(positions[i], setpoints[i]);
+    motors[i].drive(controlEfforts[i]);
+}
 
-        motors[i].drive(controlEfforts[i]);
-    }
+void updateWheels(int i) {
+    velocities[i] = sign[i] * encoders[i].getVelocity(); // in rad/s
+    controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
+    motors[i].drive(controlEfforts[i]);
 }
