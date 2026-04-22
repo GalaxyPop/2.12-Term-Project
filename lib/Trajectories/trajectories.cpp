@@ -3,6 +3,7 @@
 JoystickReading joystickReading;
 double delta_max = 0.1;
 unsigned long setupTime = 3000;
+float strength = 0.1; // tune this for barrier feel
 
 TaskSpace setupLine(TaskSpace initialPosition, TaskSpace nominalPosition, unsigned long time){
     double fraction = static_cast<double>(time) / static_cast<double>(setupTime);
@@ -100,10 +101,12 @@ TaskSpace getClosestPointInWorkspace(TaskSpace position) {
 }
 
 TaskSpace createBarrier(TaskSpace position) {
-    if (position.y < -MIN_DIST) {
-        position.y = -MIN_DIST;
-        if (abs(position.x) < MIN_DIST) {
-            position.x = (position.x >= 0) ? MIN_DIST : -MIN_DIST;
+    if (position.y < 0) {
+        if (0 <= position.x && position.x < MIN_DIST) {
+            position.x = MIN_DIST * (position.x >= 0 ? 1 : -1);
+        }
+        if (position.y < -MIN_DIST) {
+            position.y = -MIN_DIST;
         }
     }
     return position;

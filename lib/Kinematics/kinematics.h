@@ -6,7 +6,8 @@
 #define L1 L_HOLE*10 // cm
 #define L2 L_HOLE*10 // cm
 
-#define MAX_DIST L1 + L2
+#define DELTA_MAX 0.1 // cm, maximum allowed deviation from the ideal arm length
+#define MAX_DIST L1 + L2 - DELTA_MAX // cm, maximum distance from the origin that the end effector can reach
 #define MIN_DIST (L1 + L2)*0.25
 
 #define THETA1_OFFSET 0

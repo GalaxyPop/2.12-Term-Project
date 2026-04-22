@@ -44,6 +44,12 @@ JointSpace inverseKinematics(TaskSpace point) {
 
     // --- normalize angles between [-pi, pi] ---
     state.theta1 = atan2(sin(state.theta1), cos(state.theta1));
+    if (state.theta1 < -M_PI/2) {
+        // if theta1 is less than -90 degrees, add 360 degrees
+        // theta1 needs to be in the range [-90, 270] degrees to not hit the body
+        state.theta1 += 2.0*M_PI;
+    }
+
     state.theta2 = atan2(sin(state.theta2), cos(state.theta2));
 
     return state;
