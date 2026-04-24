@@ -37,10 +37,9 @@ JointSpace inverseKinematics(TaskSpace point) {
 
     double theta2_rel = atan2(s2, c2); // [-pi, pi]
 
-    // --- compute theta1 and theta2, with both being absolute link angles ---
+    // --- compute theta1 being absolute link angle ---
     state.theta1 = atan2(point.y, point.x)
                  - atan2(L2 * s2, L1 + L2 * c2);
-    state.theta2 = state.theta1 + theta2_rel;
 
     // --- normalize angle theta1 between [3pi/2, -pi/2] ---
     state.theta1 = atan2(sin(state.theta1), cos(state.theta1));
@@ -49,6 +48,9 @@ JointSpace inverseKinematics(TaskSpace point) {
         // theta1 needs to be in the range [3pi/2, -pi/2] to not hit the body
         state.theta1 += 2.0*M_PI;
     }
+
+    // --- compute theta2 being absolute link angle ---
+    state.theta2 = state.theta1 + theta2_rel;
 
     return state;
 }
