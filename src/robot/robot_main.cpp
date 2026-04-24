@@ -3,6 +3,9 @@
 #include "wireless.h"
 #include "util.h"
 #include "robot_motion_control.h"
+#include "kinematics.h"
+
+extern TaskSpace targetXY;
 
 void setup() {
     Serial.begin();
@@ -31,9 +34,11 @@ void loop() {
         updateOdometry();
         sendRobotData();
 
-        Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
-                    robotMessage.x, robotMessage.y, robotMessage.theta,
-                    robotMessage.a, robotMessage.b);
+        // Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
+        //             robotMessage.x, robotMessage.y, robotMessage.theta,
+        //             robotMessage.a, robotMessage.b);
+        Serial.printf("x: %.2f, y: %.2f\n",
+                    targetXY.x, targetXY.y);
     }
 
 }

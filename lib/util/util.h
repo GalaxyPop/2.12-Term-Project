@@ -6,6 +6,6 @@
 
 double mapDouble(double x, double in_min, double in_max, double out_min, double out_max);
 void printTabs(uint8_t nTabs);
-double mapStick(double v, double MIN, double MAX);
+double mapStick(double v, double MAG);
 
 #endif // UTIL_H

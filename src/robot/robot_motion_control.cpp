@@ -50,10 +50,11 @@ void followTrajectory() {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
-        double x_pos = abs(controllerMessage.joystick2.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick2.x, -1, 1, -MAX_DIST, MAX_DIST);
-        double y_pos = abs(controllerMessage.joystick2.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick2.y, -1, 1, -MAX_DIST, MAX_DIST);
+        double x_pos = mapStick(controllerMessage.joystick2.x, MAX_DIST);
+        double y_pos = mapStick(controllerMessage.joystick2.y, MAX_DIST);
 
         targetXY = {x_pos, y_pos};
+        // targetXY = getClosestPointInWorkspace(targetXY); // ensures target is in workspace
         targetXY = createBarrier(targetXY); // creates a barrier such that arm won't hit robot body
         targetPose = inverseKinematics(targetXY);
 
