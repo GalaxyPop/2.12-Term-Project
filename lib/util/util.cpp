@@ -16,13 +16,13 @@ void printTabs(uint8_t nTabs) {
 }
 
 double mapStick(double v, double MAG) {
-
     // dead zone
-    if (fabs(v) < 0.1) return 0;
+    double dead = 0.1;
+    if (fabs(v) < dead) return 0;
 
     if (v > 0) {
-        return mapDouble(v, 0, 1.0, 0, MAG);
+        return mapDouble(v, dead, 1.0, 0, MAG);
     } else {
-        return mapDouble(v, -1.0, 0, -MAG, 0);
+        return mapDouble(v, -1.0, -dead, -MAG, 0);
     }
 }

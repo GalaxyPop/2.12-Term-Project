@@ -35,22 +35,20 @@ JointSpace inverseKinematics(TaskSpace point) {
     double s2 = -sqrt(fmax(0.0, 1 - c2*c2)); // to prevent numerical issues with sqrt when point is at the edge of the workspace
     if (!elbowUp) s2 = -s2; // turn to elbow-down solution
 
-    double theta2_rel = atan2(s2, c2);
+    double theta2_rel = atan2(s2, c2); // [-pi, pi]
 
     // --- compute theta1 and theta2, with both being absolute link angles ---
     state.theta1 = atan2(point.y, point.x)
                  - atan2(L2 * s2, L1 + L2 * c2);
     state.theta2 = state.theta1 + theta2_rel;
 
-    // --- normalize angles between [-pi, pi] ---
+    // --- normalize angle theta1 between [3pi/2, -pi/2] ---
     state.theta1 = atan2(sin(state.theta1), cos(state.theta1));
     if (state.theta1 < -M_PI/2) {
-        // if theta1 is less than -90 degrees, add 360 degrees
-        // theta1 needs to be in the range [-90, 270] degrees to not hit the body
+        // if theta1 is less than -pi/2, add 2*pi radians
+        // theta1 needs to be in the range [3pi/2, -pi/2] to not hit the body
         state.theta1 += 2.0*M_PI;
     }
-
-    state.theta2 = atan2(sin(state.theta2), cos(state.theta2));
 
     return state;
 }

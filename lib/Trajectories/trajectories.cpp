@@ -101,7 +101,7 @@ TaskSpace getClosestPointInWorkspace(TaskSpace position) {
 }
 
 TaskSpace createBarrier(TaskSpace position) {
-    if (position.y < 0) {
+    if (position.y <= 0) {
         if (abs(position.x) < MIN_DIST) {
             position.x = MIN_DIST * (position.x >= 0 ? 1 : -1);
         }
