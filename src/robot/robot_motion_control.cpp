@@ -38,7 +38,7 @@ double t2 = 0;
 void setWheelVelocities(float robotVelocity, float k){
     double left = (robotVelocity - k * bb * robotVelocity) / r;
     double right = 2 * robotVelocity / r  - left;
-    updateSetpoints(left, right, 0, 0);
+    updateSetpointsWheels(left, right);
 }
 
 // Makes robot body follow a trajectory
@@ -58,7 +58,8 @@ void followTrajectory() {
         targetXY = createBarrier(targetXY); // creates a barrier such that arm won't hit robot body
         targetPose = inverseKinematics(targetXY);
 
-        updateSetpoints(forward + turn, forward - turn, targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
+        updateSetpointsWheels(forward + turn, forward - turn);
+        updateSetpointsArms(targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
     }
     #endif
 
@@ -115,9 +116,50 @@ void followTrajectory() {
     #endif
 
     #ifdef YOUR_TRAJECTORY
-    updateSetpoints(0, 0, 0, );
-    #endif
+    switch (state) {
+        case 0:
+            // Until robot has achieved an x translation of 1 m:
+            if (robotMessage.x <= 1.0) {
+                // Move in a straight line forward
+                robotVelocity = 0.2;
+                k = 0;
+            } else {
+                // Move on to next state
+                state++;
+            }
+            break;
 
+        case 1:
+            // Until robot has achieved a 180 deg turn in theta:
+            if (robotMessage.theta <= M_PI) {
+                // Turn in a circle with radius 25 cm
+                robotVelocity = 0.2;
+                k = 1 / 0.25;
+            } else {
+                state++;
+            }
+            break;
+
+        case 2:
+            // Until robot has achieved an x translation of -1 m:
+            if (robotMessage.x >= 0) {
+                // Move in a straight line forward
+                robotVelocity = 0.2;
+                k = 0;
+            } else {
+                // Move on to next state
+                state++;
+            }
+            break;
+
+        default:
+            // If not in any of the states, robot should just stop
+            robotVelocity = 0;
+            k = 0;
+            break;
+    }
+    setWheelVelocities(robotVelocity, k);
+    #endif
 
     // control arm joints to do vertical line
     #ifdef VERTICAL_LINE
@@ -158,4 +200,31 @@ void updateOdometry() {
     robotMessage.x += dx;
     robotMessage.y += dy;
     robotMessage.theta += dtheta;
+}
+
+void driveForward(double velocity) {
+    k = 0;
+    setWheelVelocities(robotVelocity, k);
+}
+
+void turnLeft(float omega) {
+    robotVelocity = omega * r; // v = w*r, where r is wheel radius
+    updateSetpointsWheels(robotVelocity, -robotVelocity);
+}
+
+void turnRight(float omega) {
+    robotVelocity = omega * r; // v = w*r, where r is wheel radius
+    updateSetpointsWheels(-robotVelocity, robotVelocity);
+}
+
+void armUp() {
+    targetPose.theta1 = M_PI/2;
+    targetPose.theta2 = 0;
+    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+}
+
+void armDown() {
+    targetPose.theta1 = M_PI/4;
+    targetPose.theta2 = 0;
+    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
 }

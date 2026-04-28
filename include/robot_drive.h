@@ -15,7 +15,8 @@
 #define MAX_TURN 3
 
 void setupDrive();
-void updateSetpoints(double left, double right, double t1, double t2);
+void updateSetpointsWheels(double left, double right);
+void updateSetpointsArms(double theta1, double theta2);
 void updatePIDs();
 void updateArms(int i);
 void updateWheels(int i);

@@ -31,11 +31,14 @@ void setupDrive(){
         motors[i].setup();
 }
 
-void updateSetpoints(double left, double right, double t1, double t2) {
-    setpoints[0] += alpha*(t1 - setpoints[0]);
-    setpoints[1] = right;
-    setpoints[2] = left;
-    setpoints[3] += alpha*(t2 - setpoints[3]);
+void updateSetpointsWheels(double left, double right) {
+    setpoints[1] = right; // right wheel
+    setpoints[2] = left; // left wheel
+}
+
+void updateSetpointsArms(double theta1, double theta2) {
+    setpoints[0] += alpha*(theta1 - setpoints[0]); // link 1
+    setpoints[3] += alpha*(theta2 - setpoints[3]); // link 2
 }
 
 void updatePIDs() {
