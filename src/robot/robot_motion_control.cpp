@@ -17,9 +17,9 @@ extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
 
 // based off of initial position of robot arm being straight up, so theta1 is 90 deg and theta2 is 0 deg
-JointSpace targetPose = {THETA1_OFFSET, THETA2_OFFSET}; //initial setpoint
-TaskSpace targetXY = forwardKinematics(targetPose); //initial position of end effector
-TaskSpace nominalPosition = {0.5*(L1 + L2), 0}; //nominal position of end effector for custom trajectories
+JointSpace targetPose = {THETA1_OFFSET, 0.0}; //initial setpoint
+TaskSpace targetXY = {0, L1 + L2}; //initial position of end effector
+TaskSpace nominalPosition = {0.5*(L1 + L2), 0}; //nominal position of end effector for trajectories
 
 int state = 0;
 double robotVelocity = 0; // velocity of robot, in m/s
@@ -38,7 +38,7 @@ double t2 = 0;
 void setWheelVelocities(float robotVelocity, float k){
     double left = (robotVelocity - k * bb * robotVelocity) / r;
     double right = 2 * robotVelocity / r  - left;
-    updateSetpointsWheels(left, right);
+    updateSetpoints(left, right, 0, 0);
 }
 
 // Makes robot body follow a trajectory
@@ -50,16 +50,14 @@ void followTrajectory() {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
-        double x_pos = mapStick(controllerMessage.joystick2.x, MAX_DIST);
-        double y_pos = mapStick(controllerMessage.joystick2.y, MAX_DIST);
+        double x_pos = mapStick(controllerMessage.joystick2.x, MIN_DIST, MAX_DIST);
+        double y_pos = mapStick(controllerMessage.joystick2.y, MIN_DIST, MAX_DIST);
 
         targetXY = {x_pos, y_pos};
-        // targetXY = getClosestPointInWorkspace(targetXY); // ensures target is in workspace
-        targetXY = createBarrier(targetXY); // creates a barrier such that arm won't hit robot body
+        // targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
         targetPose = inverseKinematics(targetXY);
 
-        updateSetpointsWheels(forward + turn, forward - turn);
-        updateSetpointsArms(targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
+        updateSetpoints(forward + turn, forward - turn, targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
     }
     #endif
 
@@ -118,8 +116,8 @@ void followTrajectory() {
     #ifdef YOUR_TRAJECTORY
     switch (state) {
         case 0:
-            // Until robot has achieved an x translation of 1 m:
-            if (robotMessage.x <= 1.0) {
+            // Until robot has achieved an x translation of 0.5 m:
+            if (robotMessage.x <= 0.5) {
                 // Move in a straight line forward
                 robotVelocity = 0.2;
                 k = 0;
@@ -130,8 +128,8 @@ void followTrajectory() {
             break;
 
         case 1:
-            // Until robot has achieved a 180 deg turn in theta:
-            if (robotMessage.theta <= M_PI) {
+            // Until robot has achieved a 90 deg turn in theta:
+            if (robotMessage.theta <= M_PI/2) {
                 // Turn in a circle with radius 25 cm
                 robotVelocity = 0.2;
                 k = 1 / 0.25;
@@ -141,7 +139,18 @@ void followTrajectory() {
             break;
 
         case 2:
-            // Until robot has achieved an x translation of -1 m:
+            // Until robot has backed up a 90 deg turn in theta:
+            if (robotMessage.theta <= M_PI) {
+                // Turn in a circle with radius 25 cm
+                robotVelocity = -0.2;
+                k = -1 / 0.25;
+            } else {
+                state++;
+            }
+            break;
+
+        case 3:
+            // Until robot has achieved an x translation of -0.5 m:
             if (robotMessage.x >= 0) {
                 // Move in a straight line forward
                 robotVelocity = 0.2;
@@ -200,31 +209,4 @@ void updateOdometry() {
     robotMessage.x += dx;
     robotMessage.y += dy;
     robotMessage.theta += dtheta;
-}
-
-void driveForward(double velocity) {
-    k = 0;
-    setWheelVelocities(robotVelocity, k);
-}
-
-void turnLeft(float omega) {
-    robotVelocity = omega * r; // v = w*r, where r is wheel radius
-    updateSetpointsWheels(robotVelocity, -robotVelocity);
-}
-
-void turnRight(float omega) {
-    robotVelocity = omega * r; // v = w*r, where r is wheel radius
-    updateSetpointsWheels(-robotVelocity, robotVelocity);
-}
-
-void armUp() {
-    targetPose.theta1 = M_PI/2;
-    targetPose.theta2 = 0;
-    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
-}
-
-void armDown() {
-    targetPose.theta1 = M_PI/4;
-    targetPose.theta2 = 0;
-    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
 }
