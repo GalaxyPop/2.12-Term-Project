@@ -10,8 +10,8 @@
 // EC:DA:3B:41:A3:C0
 const uint8_t controllerAddr[] = {0xEC, 0xDA, 0x3B, 0x41, 0xA3, 0xC0};
 
-// EC:DA:3B:41:A2:00
-const uint8_t robotAddr[] = {0xEC, 0xDA, 0x3B, 0x41, 0xA2, 0x00};
+// EC:DA:3B:5C:89:E4 
+const uint8_t robotAddr[] = {0xEC, 0xDA, 0x3B, 0x5C, 0x89, 0xE4};
 
 struct ControllerMessage { //This struct is defined for a complex controller, but in lab 7 we only use a single joystick, so values are only written to joystick1.
     unsigned long millis;
