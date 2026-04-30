@@ -11,7 +11,7 @@
 #define MIN_DIST (L1 + L2)*0.25
 
 #define THETA1_OFFSET 0
-#define THETA2_OFFSET 0  // M_PI/2.0
+#define THETA2_OFFSET 0
 
 struct JointSpace {
     double theta1; // radians
