@@ -172,7 +172,7 @@ void followTrajectory() {
         targetXY = getClosestPointInWorkspace(targetXY);
 
         targetPose = inverseKinematics(targetXY);
-        updateSetpoints(0, 0, targetPose.theta1, targetPose.theta2);
+        updateSetpointsArms(targetPose.theta1, targetPose.theta2);
     #endif
 
 
