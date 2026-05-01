@@ -18,6 +18,8 @@ PID pids[NUM_MOTORS] = { {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false}, {Kp_wheels,
                          {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false} };
 
 double alpha = 0.05;
+double gravityComp1 = 0.35;
+double gravityComp2 = 0.35;
 double setpoints[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
 double velocities[NUM_MOTORS] = {0, 0, 0, 0};
 double initial_position[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
@@ -42,20 +44,41 @@ void updateSetpointsArms(double theta1, double theta2) {
 }
 
 void updatePIDs() {
-    updateArms(0); // link 1
-    updateArms(3); // link 2
+    updateArms();
     updateWheels(1); // right wheel
     updateWheels(2); // left wheel
 }
 
-void updateArms(int i) {
-    positions[i] = initial_position[i] + encoder_sign[i] * encoders[i].getPosition(); // in rad
-    controlEfforts[i] = pids[i].calculateParallel(positions[i], setpoints[i]);
-    motors[i].drive(motor_sign[i]*controlEfforts[i]);
+void updateArms() {
+    positions[0] = initial_position[0] + encoder_sign[0] * encoders[0].getPosition(); // in rad
+    positions[3] = initial_position[3] + encoder_sign[3] * encoders[3].getPosition(); // in rad
+
+    // gravity feedforward
+    double G1, G2;
+    computeGravity(positions[0], positions[3], G1, G2);
+
+    // PID terms
+    controlEfforts[0] = pids[0].calculateParallel(positions[0], setpoints[0]) + gravityComp1 * G1;
+    controlEfforts[3] = pids[3].calculateParallel(positions[3], setpoints[3]) + gravityComp2 * G2;
+
+    motors[0].drive(motor_sign[0] * controlEfforts[0]);
+    motors[3].drive(motor_sign[3] * controlEfforts[3]);
 }
 
 void updateWheels(int i) {
     velocities[i] = encoder_sign[i] * encoders[i].getVelocity(); // in rad/s
     controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
     motors[i].drive(controlEfforts[i]);
+}
+
+void computeGravity(double theta1, double theta2, double &tau1, double &tau2) {
+    // Gravity torque for absolute link angles.
+    tau1 =
+        (LINK_MASS_KG * GRAVITY * (LINK_LENGTH_M / 2.0) * cos(theta1)) +
+        (LINK_MASS_KG * GRAVITY * LINK_LENGTH_M * cos(theta1)) +
+        (END_EFFECTOR_MASS_KG * GRAVITY * LINK_LENGTH_M * cos(theta1));
+
+    tau2 =
+        (LINK_MASS_KG * GRAVITY * (LINK_LENGTH_M / 2.0) * cos(theta2)) +
+        (END_EFFECTOR_MASS_KG * GRAVITY * LINK_LENGTH_M * cos(theta2));
 }

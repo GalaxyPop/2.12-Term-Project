@@ -7,7 +7,7 @@
 #define Ki_wheels 0.01
 #define Kd_wheels 0
 #define Kp_arm 1
-#define Ki_arm 0.01
+#define Ki_arm 0.02
 #define Kd_arm 0.05
 #define pidTau 0.1
 
@@ -18,7 +18,8 @@ void setupDrive();
 void updateSetpointsWheels(double left, double right);
 void updateSetpointsArms(double theta1, double theta2);
 void updatePIDs();
-void updateArms(int i);
+void updateArms();
 void updateWheels(int i);
+void computeGravity(double theta1, double theta2, double &tau1, double &tau2);
 
 #endif // ROBOT_DRIVE_H
