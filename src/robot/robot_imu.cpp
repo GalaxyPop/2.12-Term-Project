@@ -1,12 +1,12 @@
 #include <Arduino.h>
 #include <Adafruit_BNO08x.h>
 #include "imu.h"
-#include "robot_pinout.h" 
+#include "robot_pinout.h"
 #include "robot_motion_control.h"
 
 
 // USE ROLL FOR 'alpha' (tilt on the ramp -- neg sign makes pos alpha on way up, neg on way down)
-// USE YAW FOR turn updating (increase to left, decrease to right); 
+// USE YAW FOR turn updating (increase to left, decrease to right);
 // since it's relative, maybe reset to zero frequently or before turning (or just use differences -- uglier though)
 // No need for pitch, but needs +4 offset
 
@@ -69,7 +69,7 @@ void scanIMU() {
     setReports(reportType, reportIntervalUs);
     // bno08x.enableReport(reportType, reportIntervalUs);
   }
-  
+
   if (bno08x.getSensorEvent(&sensorValue)) {
     // in this demo only one report type will be received depending on FAST_MODE define (above)
     switch (sensorValue.sensorId) {

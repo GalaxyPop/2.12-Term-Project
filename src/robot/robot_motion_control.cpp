@@ -38,7 +38,7 @@ double t2 = 0;
 void setWheelVelocities(float robotVelocity, float k){
     double left = (robotVelocity - k * bb * robotVelocity) / r;
     double right = 2 * robotVelocity / r  - left;
-    updateSetpoints(left, right, 0, 0);
+    updateSetpointsWheels(left, right);
 }
 
 // Makes robot body follow a trajectory
@@ -50,14 +50,16 @@ void followTrajectory() {
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
-        double x_pos = mapStick(controllerMessage.joystick2.x, MIN_DIST, MAX_DIST);
-        double y_pos = mapStick(controllerMessage.joystick2.y, MIN_DIST, MAX_DIST);
+        double x_pos = mapStick(controllerMessage.joystick2.x, MAX_DIST);
+        double y_pos = mapStick(controllerMessage.joystick2.y, MAX_DIST);
 
         targetXY = {x_pos, y_pos};
-        // targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
+        targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
+        targetXY = createBarrier(targetXY); // prevents the arm from colliding with the robot body
         targetPose = inverseKinematics(targetXY);
 
-        updateSetpoints(forward + turn, forward - turn, targetPose.theta1, targetPose.theta2); // theta1 and theta2 being for the arm links
+        updateSetpointsWheels(forward + turn, forward - turn); // left and right wheel velocities
+        updateSetpointsArms(targetPose.theta1, targetPose.theta2);
     }
     #endif
 
@@ -209,4 +211,31 @@ void updateOdometry() {
     robotMessage.x += dx;
     robotMessage.y += dy;
     robotMessage.theta += dtheta;
+}
+
+void driveForward(double velocity) {
+    k = 0;
+    setWheelVelocities(robotVelocity, k);
+}
+
+void turnLeft(float omega) {
+    robotVelocity = omega * r; // v = w*r, where r is wheel radius
+    updateSetpointsWheels(robotVelocity, -robotVelocity);
+}
+
+void turnRight(float omega) {
+    robotVelocity = omega * r; // v = w*r, where r is wheel radius
+    updateSetpointsWheels(-robotVelocity, robotVelocity);
+}
+
+void armUp() {
+    targetPose.theta1 = M_PI/2;
+    targetPose.theta2 = 0;
+    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+}
+
+void armDown() {
+    targetPose.theta1 = M_PI/4;
+    targetPose.theta2 = 0;
+    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
 }
