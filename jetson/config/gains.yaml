@@ -1,0 +1,42 @@
+# Tunable gains. Ship conservative, tune on hardware.
+
+pure_pursuit:
+  lookahead_m: 0.25
+  v_max: 0.25                # dev cap, lower than robot.yaml limit
+  v_min_on_turn: 0.08
+  turn_slowdown: 0.5         # v := v_max * (1 - turn_slowdown * |curvature|)
+  goal_tolerance_m: 0.05
+
+ekf:
+  # Process noise per second, diag(x, y, theta). Scales with dt internally.
+  Q_diag: [1.0e-4, 1.0e-4, 4.0e-4]
+  # Tag measurement noise at 1 m range, diag(x, y, theta).
+  # Inflated by (range_m / 1.0)^2 at runtime to downweight distant tags.
+  R_tag_1m_diag: [4.0e-4, 4.0e-4, 2.5e-3]
+  P0_diag: [0.10, 0.10, 0.10]
+  dead_reckoning_timeout_s: 0.5   # no tag in this window -> DEAD_RECKONING
+  lost_trace_threshold: 1.0       # trace(P) above this -> LOST
+
+obstacle:
+  # Near-field trapezoid in COLOR pixel space, expressed as fractions of
+  # image width/height (resolution-independent).
+  roi_trapezoid:
+    top_y_frac: 0.55
+    bottom_y_frac: 0.95
+    top_x_half_width_frac: 0.10
+    bottom_x_half_width_frac: 0.35
+  depth_min_mm: 200           # near-clip: ignore depth closer than this
+  depth_max_mm: 800            # "obstacle" = depth in (min, max) in ROI
+  min_pixel_count: 500         # require this many obstacle pixels to trigger
+  hysteresis_clear_frames: 5   # must be clear this many frames before un-blocking
+
+planning:
+  grid_resolution_m: 0.02      # 2 cm cells on 4x8 m arena -> 200x400 grid
+  inflation_radius_m: 0.25     # slightly larger than footprint for safety margin
+  replan_deviation_m: 0.15     # replan if pose deviates from path this much
+  replan_block_time_s: 2.0     # replan if obstacle-stopped this long
+  astar_diagonal_cost: 1.4142
+
+fsm:
+  state_entry_timeout_s: 10.0  # default per-state timeout -> RECOVER
+  tick_rate_hz: 20

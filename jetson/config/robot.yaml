@@ -1,0 +1,32 @@
+# Robot physical parameters.
+# Values marked [MEASURE] must be measured on the actual chassis.
+
+chassis:
+  wheelbase_m: 0.20          # [MEASURE] left-wheel to right-wheel center distance
+  wheel_radius_m: 0.04       # [MEASURE] drive wheel radius
+  footprint_radius_m: 0.18   # [MEASURE] circumscribed circle around chassis (used for costmap inflation)
+
+limits:
+  v_max: 0.30                # m/s forward
+  v_max_reverse: 0.15        # m/s
+  w_max: 2.0                 # rad/s
+  accel_max: 1.0             # m/s^2 (soft limit — planner slews, not ESP32)
+
+# Static transform from base_link (robot center, ground plane, +X forward, +Z up)
+# to camera_color_optical_frame (RealSense color sensor: +Z forward, +X right, +Y down).
+# Measure once the RealSense is mounted. Default assumes camera mounted
+# 15 cm forward of base center, 20 cm above ground, level and facing forward.
+camera_mount:
+  translation_m: [0.15, 0.00, 0.20]
+  # Rotation from base_link axes to camera_optical axes, as roll/pitch/yaw
+  # applied in XYZ order. The default values below rotate base_link's (+X fwd,
+  # +Y left, +Z up) into the optical convention (+Z fwd, +X right, +Y down):
+  #   roll = -pi/2, pitch = 0, yaw = -pi/2
+  rotation_rpy: [-1.5708, 0.0, -1.5708]
+
+# For reference only — authoritative values live in the ESP32 firmware
+# (lib/EncoderVelocity, lib/PID, src/robot/robot_drive.cpp).
+esp32_reference:
+  encoder_cpr: 5281.1
+  pid_rate_hz: 200
+  odometry_rate_hz: 50

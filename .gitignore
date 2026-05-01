@@ -5,3 +5,8 @@
 .vscode/launch.json
 .vscode/ipch
 .DS_Store
+
+# Python
+venv/
+__pycache__/
+*.pyc
