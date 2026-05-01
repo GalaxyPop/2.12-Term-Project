@@ -9,6 +9,13 @@
 #include "robot_autonomous.h"
 
 #define JOYSTICK
+<<<<<<< HEAD
+=======
+// #define YOUR_TRAJECTORY
+// #define VERTICAL_LINE
+// wheel radius in meters
+#define r 0.096
+>>>>>>> c94e5b6866c9510aedbb41179b7cb70c49dac80a
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
