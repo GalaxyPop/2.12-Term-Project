@@ -18,6 +18,8 @@ PID pids[NUM_MOTORS] = { {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false}, {Kp_wheels,
                          {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false} };
 
 double alpha = 0.05;
+double gravityComp1 = 0.35;
+double gravityComp2 = 0.35;
 double setpoints[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
 double velocities[NUM_MOTORS] = {0, 0, 0, 0};
 double initial_position[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
@@ -56,8 +58,8 @@ void updateArms() {
     computeGravity(positions[0], positions[3], G1, G2);
 
     // PID terms
-    controlEfforts[0] = pids[0].calculateParallel(positions[0], setpoints[0]) + G1;
-    controlEfforts[3] = pids[3].calculateParallel(positions[3], setpoints[3]) + G2;
+    controlEfforts[0] = pids[0].calculateParallel(positions[0], setpoints[0]) + gravityComp1 * G1;
+    controlEfforts[3] = pids[3].calculateParallel(positions[3], setpoints[3]) + gravityComp2 * G2;
 
     motors[0].drive(motor_sign[0] * controlEfforts[0]);
     motors[3].drive(motor_sign[3] * controlEfforts[3]);
