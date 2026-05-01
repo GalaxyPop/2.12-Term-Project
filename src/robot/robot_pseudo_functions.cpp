@@ -1,162 +1,317 @@
-#include <iostream>
-#include <thread>
-#include <atomic>
-#include <chrono>
+#include <Arduino.h>
+#include <math.h>
+#include "robot_autonomous.h"
+#include "robot_drive.h"
+#include "robot_motion_control.h"
+#include "wireless.h"
 
-// Global atomic flag to communicate between the vision thread and the drive sequence
-std::atomic<bool> obstacle_detected(false);
+extern RobotMessage robotMessage;
 
-// ---------------------------------------------------------
-// Subsystem & Navigation Placeholder Functions
-// ---------------------------------------------------------
+typedef ActionStatus (*ActionFn)();
 
-// Vision & Targeting
-void findAndAlignAprilTag(int tag_id);
-void scanForFoodTrayPrepTag();
-void scanForDinnerTableTag();
-void scanForDishwasherTrayTag();
-void scanForDishwasherTag();
+struct AutoStep {
+    const char *name;
+    ActionFn action;
+};
 
-// Basic Movement (Non-Ramp)
-void navigateForwardUntil(std::string condition);
-void moveForwardPresetDistance();
-void reversePresetDistance();
-void turnRight90();
-void turnLeft90();
-void makeInformedAdjustments();
+static bool autonomousEnabled = true;
+static bool obstacleDetected = false;
+static int currentStep = 0;
 
-// Ramp Traversals (Empty)
-void traverseEmptySlopeA_Up();
-void traverseEmptySlopeB_Down();
-void reverseEmptySlopeB_Up();
-void reverseEmptySlopeA_Down();
+static const float DRIVE_SPEED = 0.18;       // m/s
+static const float REVERSE_SPEED = -0.15;    // m/s
+static const float TURN_WHEEL_SPEED = 2.0;   // wheel rad/s
+static const float DIST_TOLERANCE = 0.03;    // m
+static const float ANGLE_TOLERANCE = 0.05;   // rad
 
-// Ramp Traversals (Loaded - Includes IMU Balancing)
-void traverseLoadedSlopeA_Up();
-void reverseLoadedSlopeA_Down();
-void reverseLoadedSlopeB_Up();
-void traverseLoadedSlopeB_Down();
+static float startX = 0;
+static float startY = 0;
+static float startTheta = 0;
+static unsigned long actionStartMillis = 0;
+static bool actionStarted = false;
 
-// Manipulation
-void positionChassisForGrip();
-void grabTray();
-void depositTray();
+static void driveForward(double velocity) {
+    setWheelVelocities(velocity, 0);
+}
 
-// Path Planning
-void executePathPlanTo(std::string destination);
+static void stopDrive() {
+    updateSetpointsWheels(0, 0);
+}
 
-// ---------------------------------------------------------
-// Concurrent Obstacle Detection Thread
-// ---------------------------------------------------------
-void scanForMovingObstacles() {
-    std::cout << "[THREAD] Obstacle detection active on RGB/Depth camera..." << std::endl;
-    while (true) {
-        // Implement your object detection inference here (e.g., YOLOv8 or Realsense depth check)
-        bool obstacle_in_path = false; // Replace with actual camera inference
-        
-        if (obstacle_in_path) {
-            obstacle_detected = true;
-            // Send emergency brake command to chassis here
-        } else {
-            obstacle_detected = false;
-        }
-        
-        // Brief sleep to yield CPU cycles
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+static void beginAction() {
+    if (actionStarted) return;
+
+    startX = robotMessage.x;
+    startY = robotMessage.y;
+    startTheta = robotMessage.theta;
+    actionStartMillis = millis();
+    actionStarted = true;
+}
+
+static ActionStatus finishAction() {
+    stopDrive();
+    actionStarted = false;
+    return ACTION_DONE;
+}
+
+static float distanceFromStart() {
+    const float dx = robotMessage.x - startX;
+    const float dy = robotMessage.y - startY;
+    return sqrt(dx * dx + dy * dy);
+}
+
+static float angleFromStart() {
+    float angle = robotMessage.theta - startTheta;
+    while (angle > PI) angle -= 2 * PI;
+    while (angle < -PI) angle += 2 * PI;
+    return angle;
+}
+
+static ActionStatus driveDistance(float meters, float velocity) {
+    beginAction();
+
+    if (distanceFromStart() >= fabs(meters) - DIST_TOLERANCE) {
+        return finishAction();
+    }
+
+    driveForward(velocity);
+    return ACTION_RUNNING;
+}
+
+static ActionStatus turnAngle(float radians) {
+    beginAction();
+
+    const float turned = angleFromStart();
+    if (fabs(turned) >= fabs(radians) - ANGLE_TOLERANCE) {
+        return finishAction();
+    }
+
+    const float direction = radians > 0 ? 1.0 : -1.0;
+    updateSetpointsWheels(-direction * TURN_WHEEL_SPEED, direction * TURN_WHEEL_SPEED);
+    return ACTION_RUNNING;
+}
+
+static ActionStatus waitMillis(unsigned long duration) {
+    beginAction();
+
+    if (millis() - actionStartMillis >= duration) {
+        return finishAction();
+    }
+
+    stopDrive();
+    return ACTION_RUNNING;
+}
+
+static ActionStatus findAndAlignAprilTag1() {
+    // Replace this with camera/Jetson alignment. For now, it is a short non-blocking pause.
+    return waitMillis(500);
+}
+
+static ActionStatus findAndAlignAprilTag2() {
+    return waitMillis(500);
+}
+
+static ActionStatus navigateToBaseOfSlopeA() {
+    return driveDistance(0.50, DRIVE_SPEED);
+}
+
+static ActionStatus navigateToPresetTray() {
+    return driveDistance(0.35, DRIVE_SPEED);
+}
+
+static ActionStatus moveForwardPresetDistance() {
+    return driveDistance(0.20, DRIVE_SPEED);
+}
+
+static ActionStatus reversePresetDistance() {
+    return driveDistance(0.20, REVERSE_SPEED);
+}
+
+static ActionStatus turnRight90() {
+    return turnAngle(-PI / 2.0);
+}
+
+static ActionStatus turnLeft90() {
+    return turnAngle(PI / 2.0);
+}
+
+static ActionStatus traverseEmptySlopeA_Up() {
+    return driveDistance(0.75, DRIVE_SPEED);
+}
+
+static ActionStatus traverseEmptySlopeB_Down() {
+    return driveDistance(0.75, DRIVE_SPEED);
+}
+
+static ActionStatus reverseEmptySlopeB_Up() {
+    return driveDistance(0.75, REVERSE_SPEED);
+}
+
+static ActionStatus reverseEmptySlopeA_Down() {
+    return driveDistance(0.75, REVERSE_SPEED);
+}
+
+static ActionStatus traverseLoadedSlopeA_Up() {
+    // This is where IMU balancing can be added using ypr.roll.
+    return driveDistance(0.75, 0.12);
+}
+
+static ActionStatus reverseLoadedSlopeA_Down() {
+    return driveDistance(0.75, -0.12);
+}
+
+static ActionStatus reverseLoadedSlopeB_Up() {
+    return driveDistance(0.75, -0.12);
+}
+
+static ActionStatus traverseLoadedSlopeB_Down() {
+    return driveDistance(0.75, 0.12);
+}
+
+static ActionStatus scanForFoodTrayPrepTag() {
+    return waitMillis(500);
+}
+
+static ActionStatus scanForDinnerTableTag() {
+    return waitMillis(500);
+}
+
+static ActionStatus scanForDishwasherTrayTag() {
+    return waitMillis(500);
+}
+
+static ActionStatus scanForDishwasherTag() {
+    return waitMillis(500);
+}
+
+static ActionStatus makeInformedAdjustments() {
+    return waitMillis(500);
+}
+
+static ActionStatus positionChassisForGrip() {
+    return driveDistance(0.08, DRIVE_SPEED);
+}
+
+static ActionStatus grabTray() {
+    // Replace with gripper/arm command once the mechanism interface exists.
+    return waitMillis(700);
+}
+
+static ActionStatus depositTray() {
+    return waitMillis(700);
+}
+
+static ActionStatus pathToBaseOfSlopeA() {
+    return driveDistance(0.45, DRIVE_SPEED);
+}
+
+static ActionStatus pathToDinnerTable() {
+    return driveDistance(0.50, DRIVE_SPEED);
+}
+
+static ActionStatus pathToDishwasherTray() {
+    return driveDistance(0.50, DRIVE_SPEED);
+}
+
+static ActionStatus pathToDishwasher() {
+    return driveDistance(0.50, DRIVE_SPEED);
+}
+
+static AutoStep sequence[] = {
+    {"align ramp tag", findAndAlignAprilTag1},
+    {"drive to slope A", navigateToBaseOfSlopeA},
+    {"empty slope A up", traverseEmptySlopeA_Up},
+    {"turn right", turnRight90},
+    {"empty slope B down", traverseEmptySlopeB_Down},
+    {"reverse slope B up", reverseEmptySlopeB_Up},
+    {"turn left", turnLeft90},
+    {"reverse slope A down", reverseEmptySlopeA_Down},
+    {"empty slope A up", traverseEmptySlopeA_Up},
+    {"turn right", turnRight90},
+    {"empty slope B down", traverseEmptySlopeB_Down},
+    {"drive to tray", navigateToPresetTray},
+    {"forward preset", moveForwardPresetDistance},
+    {"turn right", turnRight90},
+    {"scan tray tag", scanForFoodTrayPrepTag},
+    {"position for grip", positionChassisForGrip},
+    {"grab tray", grabTray},
+    {"reverse preset", reversePresetDistance},
+    {"turn right", turnRight90},
+    {"align return tag", findAndAlignAprilTag2},
+    {"path to slope A", pathToBaseOfSlopeA},
+    {"loaded slope A up", traverseLoadedSlopeA_Up},
+    {"loaded slope A down", reverseLoadedSlopeA_Down},
+    {"loaded slope A up", traverseLoadedSlopeA_Up},
+    {"loaded slope A down", reverseLoadedSlopeA_Down},
+    {"loaded slope A up", traverseLoadedSlopeA_Up},
+    {"turn right", turnRight90},
+    {"loaded slope B down", traverseLoadedSlopeB_Down},
+    {"reverse loaded slope B up", reverseLoadedSlopeB_Up},
+    {"loaded slope B down", traverseLoadedSlopeB_Down},
+    {"reverse loaded slope B up", reverseLoadedSlopeB_Up},
+    {"loaded slope B down", traverseLoadedSlopeB_Down},
+    {"path to dinner table", pathToDinnerTable},
+    {"scan dinner tag", scanForDinnerTableTag},
+    {"adjust at dinner table", makeInformedAdjustments},
+    {"deposit tray", depositTray},
+    {"path to dishwasher tray", pathToDishwasherTray},
+    {"scan dishwasher tray", scanForDishwasherTrayTag},
+    {"adjust at dishwasher tray", makeInformedAdjustments},
+    {"grab tray", grabTray},
+    {"path to dishwasher", pathToDishwasher},
+    {"scan dishwasher", scanForDishwasherTag},
+    {"adjust at dishwasher", makeInformedAdjustments},
+    {"deposit tray", depositTray},
+};
+
+static const int NUM_STEPS = sizeof(sequence) / sizeof(sequence[0]);
+
+void setupAutonomous() {
+    resetAutonomousSequence();
+}
+
+void runAutonomousSequence() {
+    if (!autonomousEnabled || autonomousSequenceComplete()) {
+        stopDrive();
+        return;
+    }
+
+    if (obstacleDetected) {
+        stopDrive();
+        return;
+    }
+
+    ActionStatus status = sequence[currentStep].action();
+
+    if (status == ACTION_DONE) {
+        Serial.print("Finished auto step: ");
+        Serial.println(sequence[currentStep].name);
+        currentStep++;
+    } else if (status == ACTION_FAILED) {
+        Serial.print("Failed auto step: ");
+        Serial.println(sequence[currentStep].name);
+        autonomousEnabled = false;
+        stopDrive();
     }
 }
 
-// Helper wrapper to ensure movement commands check the obstacle flag
-void safeExecute(void (*movementFunction)()) {
-    while (obstacle_detected) {
-        std::cout << "[HALT] Moving obstacle detected! Waiting..." << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    movementFunction();
+void resetAutonomousSequence() {
+    currentStep = 0;
+    actionStarted = false;
+    autonomousEnabled = true;
+    stopDrive();
 }
 
+void setAutonomousEnabled(bool enabled) {
+    autonomousEnabled = enabled;
+    if (!enabled) stopDrive();
+}
 
-// ---------------------------------------------------------
-// Main Execution Sequence
-// ---------------------------------------------------------
-int main() {
-    std::cout << "Starting Mobile Robot Autonomous Sequence..." << std::endl;
+bool autonomousSequenceComplete() {
+    return currentStep >= NUM_STEPS;
+}
 
-    // Step 3: Initialize the concurrent obstacle scanning thread
-    std::thread vision_thread(scanForMovingObstacles);
-    vision_thread.detach(); 
-
-    // Steps 1-2: Initial Ramp Approach
-    findAndAlignAprilTag(1); // Assuming 1 is the ramp tag
-    safeExecute([](){ navigateForwardUntil("base_of_slope_A"); });
-
-    // Steps 4-6: Empty Traversal 1
-    safeExecute(traverseEmptySlopeA_Up);
-    safeExecute(turnRight90);
-    safeExecute(traverseEmptySlopeB_Down);
-
-    // Steps 7-9: Empty Traversal 2 (Reverse)
-    safeExecute(reverseEmptySlopeB_Up);
-    safeExecute(turnLeft90); // Doing a reverse turn at the peak
-    safeExecute(reverseEmptySlopeA_Down);
-
-    // Steps 10-12: Empty Traversal 3
-    safeExecute(traverseEmptySlopeA_Up);
-    safeExecute(turnRight90);
-    safeExecute(traverseEmptySlopeB_Down);
-
-    // Steps 13-14: Approach Preset Tray
-    safeExecute([](){ navigateForwardUntil("preset_tray_tag_visible"); });
-    safeExecute(moveForwardPresetDistance);
-
-    // Steps 15-18: Grab Food Tray
-    safeExecute(turnRight90);
-    scanForFoodTrayPrepTag();
-    safeExecute(positionChassisForGrip);
-    grabTray();
-
-    // Steps 19-22: Prep for Loaded Ramp Traversal
-    safeExecute(reversePresetDistance);
-    safeExecute(turnRight90);
-    findAndAlignAprilTag(2); // Assuming 2 is the return ramp tag
-    executePathPlanTo("base_of_slope_A");
-
-    // Steps 23-25: Loaded Slope A (Max Points Loop)
-    for(int i = 0; i < 3; i++) {
-        safeExecute(traverseLoadedSlopeA_Up);   
-        safeExecute(reverseLoadedSlopeA_Down);  
-    }
-
-    // Step 26: Cross the peak to Slope B
-    safeExecute(traverseLoadedSlopeA_Up);
-    safeExecute(turnRight90);
-    safeExecute(traverseLoadedSlopeB_Down);
-
-    // Steps 27-29: Loaded Slope B (Max Points Loop)
-    for(int i = 0; i < 3; i++) {
-        safeExecute(reverseLoadedSlopeB_Up);    
-        safeExecute(traverseLoadedSlopeB_Down); 
-    }
-
-    // Steps 30-33: Dinner Table Delivery
-    executePathPlanTo("dinner_table_vicinity");
-    scanForDinnerTableTag();
-    safeExecute(makeInformedAdjustments);
-    depositTray();
-
-    // Steps 34-36: Retrieve Dishwasher Tray
-    executePathPlanTo("dishwasher_tray_vicinity");
-    scanForDishwasherTrayTag();
-    safeExecute(makeInformedAdjustments);
-    grabTray();
-
-    // Steps 37-39: Dishwasher Delivery
-    executePathPlanTo("dishwasher_vicinity");
-    scanForDishwasherTag();
-    safeExecute(makeInformedAdjustments);
-    depositTray();
-
-    std::cout << "Mobile Robot Sequence Complete. Total tasks executed." << std::endl;
-
-    return 0;
+void setObstacleDetected(bool detected) {
+    // Set obstacle detection to true or false
+    obstacleDetected = detected;
 }

@@ -6,8 +6,9 @@
 // distance from back wheel to center in meters
 #define bb 0.18288
 
-void followTrajectory();
 void updateOdometry();
+void setWheelVelocities(float robotVelocity, float k);
+void followTrajectory();
 void setupIMU();
 void scanIMU();
 

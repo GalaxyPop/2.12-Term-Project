@@ -6,12 +6,9 @@
 #include "robot_motion_control.h"
 #include "kinematics.h"
 #include "trajectories.h"
+#include "robot_autonomous.h"
 
-// #define UTURN
-// #define CIRCLE
 #define JOYSTICK
-// #define YOUR_TRAJECTORY
-// #define VERTICAL_LINE
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
@@ -41,9 +38,9 @@ void setWheelVelocities(float robotVelocity, float k){
     updateSetpointsWheels(left, right);
 }
 
-// Makes robot body follow a trajectory
+// If the robot is reading joystick data, it will follow the joystick input.
+// Otherwise it will run the autonomous sequence.
 void followTrajectory() {
-
     #ifdef JOYSTICK
     if (freshWirelessData) {
         freshWirelessData = false;
@@ -60,134 +57,10 @@ void followTrajectory() {
 
         updateSetpointsWheels(forward + turn, forward - turn); // left and right wheel velocities
         updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+    } else {
+        runAutonomousSequence();
     }
     #endif
-
-    #ifdef CIRCLE
-    robotVelocity = 0.2;
-    k = 1/0.5;
-    setWheelVelocities(robotVelocity, k);
-    #endif
-
-    #ifdef UTURN
-    switch (state) {
-        case 0:
-            // Until robot has achieved an x translation of 1 m:
-            if (robotMessage.x <= 1.0) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        case 1:
-            // Until robot has achieved a 180 deg turn in theta:
-            if (robotMessage.theta <= M_PI) {
-                // Turn in a circle with radius 25 cm
-                robotVelocity = 0.2;
-                k = 1 / 0.25;
-            } else {
-                state++;
-            }
-            break;
-
-        case 2:
-            // Until robot has achieved an x translation of -1 m:
-            if (robotMessage.x >= 0) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        default:
-            // If not in any of the states, robot should just stop
-            robotVelocity = 0;
-            k = 0;
-            break;
-    }
-    setWheelVelocities(robotVelocity, k);
-    #endif
-
-    #ifdef YOUR_TRAJECTORY
-    switch (state) {
-        case 0:
-            // Until robot has achieved an x translation of 0.5 m:
-            if (robotMessage.x <= 0.5) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        case 1:
-            // Until robot has achieved a 90 deg turn in theta:
-            if (robotMessage.theta <= M_PI/2) {
-                // Turn in a circle with radius 25 cm
-                robotVelocity = 0.2;
-                k = 1 / 0.25;
-            } else {
-                state++;
-            }
-            break;
-
-        case 2:
-            // Until robot has backed up a 90 deg turn in theta:
-            if (robotMessage.theta <= M_PI) {
-                // Turn in a circle with radius 25 cm
-                robotVelocity = -0.2;
-                k = -1 / 0.25;
-            } else {
-                state++;
-            }
-            break;
-
-        case 3:
-            // Until robot has achieved an x translation of -0.5 m:
-            if (robotMessage.x >= 0) {
-                // Move in a straight line forward
-                robotVelocity = 0.2;
-                k = 0;
-            } else {
-                // Move on to next state
-                state++;
-            }
-            break;
-
-        default:
-            // If not in any of the states, robot should just stop
-            robotVelocity = 0;
-            k = 0;
-            break;
-    }
-    setWheelVelocities(robotVelocity, k);
-    #endif
-
-    // control arm joints to do vertical line
-    #ifdef VERTICAL_LINE
-        double amplitude = 5; // amplitude of vertical line in cm
-        double frequency = 0.5; // frequency of vertical line in Hz
-        double time = millis(); // time in ms
-
-        targetXY.x = nominalPosition.x;
-        targetXY.y = nominalPosition.y + amplitude*sin(2*M_PI*frequency*time/1000.0);
-        targetXY = getClosestPointInWorkspace(targetXY);
-
-        targetPose = inverseKinematics(targetXY);
-        updateSetpointsArms(targetPose.theta1, targetPose.theta2);
-    #endif
-
-
-
 }
 
 void updateOdometry() {
@@ -211,31 +84,4 @@ void updateOdometry() {
     robotMessage.x += dx;
     robotMessage.y += dy;
     robotMessage.theta += dtheta;
-}
-
-void driveForward(double velocity) {
-    k = 0;
-    setWheelVelocities(robotVelocity, k);
-}
-
-void turnLeft(float omega) {
-    robotVelocity = omega * r; // v = w*r, where r is wheel radius
-    updateSetpointsWheels(robotVelocity, -robotVelocity);
-}
-
-void turnRight(float omega) {
-    robotVelocity = omega * r; // v = w*r, where r is wheel radius
-    updateSetpointsWheels(-robotVelocity, robotVelocity);
-}
-
-void armUp() {
-    targetPose.theta1 = M_PI/2;
-    targetPose.theta2 = 0;
-    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
-}
-
-void armDown() {
-    targetPose.theta1 = M_PI/4;
-    targetPose.theta2 = 0;
-    updateSetpointsArms(targetPose.theta1, targetPose.theta2);
 }

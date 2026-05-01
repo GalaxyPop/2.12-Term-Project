@@ -4,6 +4,7 @@
 #include "util.h"
 #include "robot_motion_control.h"
 #include "kinematics.h"
+#include "robot_autonomous.h"
 
 extern TaskSpace targetXY;
 
@@ -11,14 +12,10 @@ void setup() {
     Serial.begin();
     setupDrive();
     setupWireless();
+    setupAutonomous();
 }
 
 void loop() {
-    // Serial.println(freshWirelessData);
-    // if (freshWirelessData) {
-    //     freshWirelessData = false;
-    //     Serial.println(controllerMessage.joystick1.x);
-    // }
     // Update velocity setpoints based on trajectory at 50Hz
     EVERY_N_MILLIS(20) {
         followTrajectory();
@@ -37,8 +34,8 @@ void loop() {
         // Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
         //             robotMessage.x, robotMessage.y, robotMessage.theta,
         //             robotMessage.a, robotMessage.b);
-        Serial.printf("x: %.2f, y: %.2f\n",
-                    targetXY.x, targetXY.y);
+        // Serial.printf("x: %.2f, y: %.2f\n",
+        //             targetXY.x, targetXY.y);
     }
 
 }
