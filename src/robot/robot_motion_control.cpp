@@ -12,6 +12,8 @@
 #define JOYSTICK
 // #define YOUR_TRAJECTORY
 // #define VERTICAL_LINE
+// wheel radius in meters
+#define r 0.096
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
