@@ -1,4 +1,5 @@
-#include "robot_motion_control.h"
+#include "servo_control.h"
+#include <Arduino.h>
 #include <ESP32Servo.h>
 
 Servo trayServo;
@@ -9,7 +10,6 @@ const int OPEN_POS_US  = 1000;  // <<< TUNE: open position
 const int NEUTRAL_US   = 1500;
 
 
-
 void gripClose() {
     trayServo.writeMicroseconds(GRIP_POS_US);
 }
@@ -18,12 +18,12 @@ void gripOpen() {
     trayServo.writeMicroseconds(OPEN_POS_US);
 }
 
-void setupservo() {
+void setupServo() {
     ESP32PWM::allocateTimer(0);
     trayServo.setPeriodHertz(50);
     trayServo.attach(SERVO_PIN, 500, 2500);
 
     gripClose();       // grip on startup
-    delay(60000);      // hold for 1 minute
+    delay(1000);      // hold for 1 second
     gripOpen();        // release
 }

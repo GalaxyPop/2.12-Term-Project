@@ -7,18 +7,13 @@
 #include "kinematics.h"
 #include "trajectories.h"
 #include "robot_autonomous.h"
+#include "servo_control.h"
 
-#define JOYSTICK
-<<<<<<< HEAD
-=======
-// #define YOUR_TRAJECTORY
-// #define VERTICAL_LINE
-// wheel radius in meters
-#define r 0.096
->>>>>>> c94e5b6866c9510aedbb41179b7cb70c49dac80a
+// #define AUTONOMOUS
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
+bool joystickOverride = false; // once joystick data is received, manual control owns the robot until reset
 
 // based off of initial position of robot arm being straight up, so theta1 is 90 deg and theta2 is 0 deg
 JointSpace targetPose = {THETA1_OFFSET, 0.0}; //initial setpoint
@@ -40,16 +35,16 @@ double t2 = 0;
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
 void setWheelVelocities(float robotVelocity, float k){
-    double left = (robotVelocity - k * bb * robotVelocity) / r;
-    double right = 2 * robotVelocity / r  - left;
+    double left = (robotVelocity - k * B_BASE * robotVelocity) / R_WHEEL;
+    double right = 2 * robotVelocity / R_WHEEL  - left;
     updateSetpointsWheels(left, right);
 }
 
 // If the robot is reading joystick data, it will follow the joystick input.
 // Otherwise it will run the autonomous sequence.
 void followTrajectory() {
-    #ifdef JOYSTICK
     if (freshWirelessData) {
+        joystickOverride = true;
         freshWirelessData = false;
         double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
         double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
@@ -64,7 +59,10 @@ void followTrajectory() {
 
         updateSetpointsWheels(forward + turn, forward - turn); // left and right wheel velocities
         updateSetpointsArms(targetPose.theta1, targetPose.theta2);
-    } else {
+    }
+
+    #ifdef AUTONOMOUS
+    if (!joystickOverride) {
         runAutonomousSequence();
     }
     #endif
@@ -82,9 +80,9 @@ void updateOdometry() {
     prevPhiR = currPhiR;
 
     // Calculate update in robot's base coordinates
-    float dtheta = r / (2 * bb) * (dPhiR - dPhiL);
-    float dx = r / 2.0 * (cos(robotMessage.theta) * dPhiR + cos(robotMessage.theta) * dPhiL);
-    float dy = r / 2.0 * (sin(robotMessage.theta) * dPhiR + sin(robotMessage.theta) * dPhiL);
+    float dtheta = R_WHEEL / (2 * B_BASE) * (dPhiR - dPhiL);
+    float dx = R_WHEEL / 2.0 * (cos(robotMessage.theta) * dPhiR + cos(robotMessage.theta) * dPhiL);
+    float dy = R_WHEEL / 2.0 * (sin(robotMessage.theta) * dPhiR + sin(robotMessage.theta) * dPhiL);
 
     // Update robot message
     robotMessage.millis = millis();
