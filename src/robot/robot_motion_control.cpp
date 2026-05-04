@@ -38,6 +38,7 @@ double prevPhiL = 0;
 double prevPhiR = 0;
 double t1 = 0;
 double t2 = 0;
+bool servo_open = 0;
 
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
@@ -81,6 +82,7 @@ void followTrajectory() {
 
         updateSetpointsWheels(forward + turn, forward - turn);
         updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+<<<<<<< Updated upstream
         // updateSetpointsArms(x_pos, y_pos); // velocity control
         return;
     }
@@ -93,7 +95,18 @@ void followTrajectory() {
         (millis() - g_jetson_vel_ts_ms) < JETSON_VEL_TIMEOUT_MS) {
         v_omega_to_wheels(g_jetson_vel_v, g_jetson_vel_w);
         return;
+=======
+
+
+    if (controllerMessage.buttonR && !servo_open) {
+        gripOpen();
+        servo_open = true;
+    } else if (controllerMessage.buttonR && servo_open) {
+        gripClose();
+        servo_open = false;
+>>>>>>> Stashed changes
     }
+}
 
     #ifdef AUTONOMOUS
     if (!joystickOverride) {

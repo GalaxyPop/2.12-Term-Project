@@ -30,4 +30,10 @@
 #define BNO08X_INT 13
 #define BNO08X_RESET 14
 
+//servo pins
+#define SERVO_PIN 43
+const int GRIP_POS_US  = 2000;
+const int OPEN_POS_US  = 1000;
+const int NEUTRAL_US   = 1500;
+
 #endif // ROBOT_PINOUT_H

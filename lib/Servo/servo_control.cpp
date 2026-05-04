@@ -19,11 +19,7 @@ void gripOpen() {
 }
 
 void setupServo() {
-    ESP32PWM::allocateTimer(0);
+    ESP32PWM::allocateTimer(3);
     trayServo.setPeriodHertz(50);
-    trayServo.attach(SERVO_PIN, 500, 2500);
-
-    gripClose();       // grip on startup
-    delay(1000);      // hold for 1 second
-    gripOpen();        // release
+    trayServo.attach(SERVO_PIN, 1000, 2000);
 }

@@ -8,8 +8,8 @@
 #include "kinematics.h"
 #include "util.h"
 
-MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 0}, {A_DIR2, A_PWM2, 1},
-                                   {B_DIR1, B_PWM1, 2}, {B_DIR2, B_PWM2, 3} };
+MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 4}, {A_DIR2, A_PWM2, 5},
+                                   {B_DIR1, B_PWM1, 6}, {B_DIR2, B_PWM2, 7} };
 
 EncoderVelocity encoders[NUM_MOTORS] = { {ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_60_RPM, 0.2},
                                          {ENCODER2_A_PIN, ENCODER2_B_PIN, CPR_312_RPM, 0.2},
