@@ -5,12 +5,10 @@
 #include "robot_motion_control.h"
 #include "kinematics.h"
 #include "robot_autonomous.h"
-<<<<<<< Updated upstream
 #include "jetson_link.h"
-=======
 #include "robot_pinout.h"
 #include "mcpwm.h"
->>>>>>> Stashed changes
+#include "servo_control.h"
 
 extern TaskSpace targetXY;
 
@@ -48,7 +46,6 @@ void gripOpen() {
 }
 
 void setup() {
-<<<<<<< Updated upstream
     Serial.begin(921600);
     // USB CDC on ESP32-S3: wait for host or time out after 3 s.
     unsigned long t0 = millis();
@@ -56,19 +53,13 @@ void setup() {
         delay(10);
     }
     setupDrive();
-=======
->>>>>>> Stashed changes
     setupWireless();
     setupDrive();
     setupServo();
     delay(1000);
     gripClose();
     setupAutonomous();
-<<<<<<< Updated upstream
     setupJetsonLink();
-=======
-
->>>>>>> Stashed changes
 }
 
 void loop() {
@@ -76,8 +67,15 @@ void loop() {
     // and gating the reader behind EVERY_N_MILLIS drops bytes mid-packet.
     handleJetsonSerial();
 
+    setupServo();
+    gripClose();
+}
+
+void loop() {
+    
     // Update velocity setpoints based on trajectory at 50Hz
     EVERY_N_MILLIS(20) {
+        scanIMU();
         followTrajectory();
     }
 
@@ -90,14 +88,12 @@ void loop() {
     EVERY_N_MILLIS(50) {
         updateOdometry();
         sendRobotData();
-<<<<<<< Updated upstream
     }
 
     // Telemetry to Jetson at 50Hz.
     EVERY_N_MILLIS(20) {
         sendJetsonTelemetry();
     }
-=======
 
         Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
                     robotMessage.x, robotMessage.y, robotMessage.theta,
@@ -105,5 +101,3 @@ void loop() {
         Serial.printf("x: %.2f, y: %.2f\n",
                     targetXY.x, targetXY.y);
     }
->>>>>>> Stashed changes
-}
