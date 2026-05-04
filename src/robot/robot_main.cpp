@@ -30,12 +30,6 @@ void loop() {
     EVERY_N_MILLIS(50) {
         updateOdometry();
         sendRobotData();
-
-        // Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
-        //             robotMessage.x, robotMessage.y, robotMessage.theta,
-        //             robotMessage.a, robotMessage.b);
-        // Serial.printf("x: %.2f, y: %.2f\n",
-        //             targetXY.x, targetXY.y);
     }
 
 }

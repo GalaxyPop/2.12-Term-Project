@@ -5,6 +5,7 @@
 #include "EncoderVelocity.h"
 #include "robot_drive.h"
 #include "kinematics.h"
+#include "util.h"
 
 MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 0}, {A_DIR2, A_PWM2, 1},
                                    {B_DIR1, B_PWM1, 2}, {B_DIR2, B_PWM2, 3} };
@@ -18,12 +19,15 @@ PID pids[NUM_MOTORS] = { {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false}, {Kp_wheels,
                          {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false} };
 
 double alpha = 0.05;
-double gravityComp1 = 0.35;
-double gravityComp2 = 0.35;
-double setpoints[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
-double velocities[NUM_MOTORS] = {0, 0, 0, 0};
+double torqueToDuty1 = 0.05;
+double torqueToDuty2 = 0.10;
+
+double setpoints[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET}; // for position
+// double setpoints[NUM_MOTORS] = {0, 0, 0, 0}; // for velocity
 double initial_position[NUM_MOTORS] = {THETA1_OFFSET, 0, 0, THETA2_OFFSET};
 double positions[NUM_MOTORS] = {0, 0, 0, 0};
+double velocities[NUM_MOTORS] = {0, 0, 0, 0};
+
 double controlEfforts[NUM_MOTORS] = {0, 0, 0, 0};
 double encoder_sign[NUM_MOTORS] = {-1, -1, 1, 1}; // depends on orientation of motor positive direction
 double motor_sign[NUM_MOTORS] = {-1, 1, 1, -1}; // depends on wiring of motor driver
@@ -44,22 +48,31 @@ void updateSetpointsArms(double theta1, double theta2) {
 }
 
 void updatePIDs() {
-    updateArms();
+    updateArms(true); // position control for arms if true, velocity control if false
     updateWheels(1); // right wheel
     updateWheels(2); // left wheel
 }
 
-void updateArms() {
+void updateArms(bool positionControl) {
+    // if positionControl is true, setpoint is interpreted as desired position
+    // otherwise, setpoint is interpreted as desired velocity
     positions[0] = initial_position[0] + encoder_sign[0] * encoders[0].getPosition(); // in rad
     positions[3] = initial_position[3] + encoder_sign[3] * encoders[3].getPosition(); // in rad
+
+    velocities[0] = encoder_sign[0] * encoders[0].getVelocity(); // in rad/s
+    velocities[3] = encoder_sign[3] * encoders[3].getVelocity(); // in rad/s
 
     // gravity feedforward
     double G1, G2;
     computeGravity(positions[0], positions[3], G1, G2);
 
-    // PID terms
-    controlEfforts[0] = pids[0].calculateParallel(positions[0], setpoints[0]) + gravityComp1 * G1;
-    controlEfforts[3] = pids[3].calculateParallel(positions[3], setpoints[3]) + gravityComp2 * G2;
+    if (positionControl) {
+        controlEfforts[0] = pids[0].calculateParallel(positions[0], setpoints[0]) + torqueToDuty1 * G1;
+        controlEfforts[3] = pids[3].calculateParallel(positions[3], setpoints[3]) + torqueToDuty2 * G2;
+    } else { // velocity control
+        controlEfforts[0] = pids[0].calculateParallel(velocities[0], setpoints[0]) + torqueToDuty1 * G1;
+        controlEfforts[3] = pids[3].calculateParallel(velocities[3], setpoints[3]) + torqueToDuty2 * G2;
+    }
 
     motors[0].drive(motor_sign[0] * controlEfforts[0]);
     motors[3].drive(motor_sign[3] * controlEfforts[3]);

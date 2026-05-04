@@ -18,7 +18,7 @@ void setupDrive();
 void updateSetpointsWheels(double left, double right);
 void updateSetpointsArms(double theta1, double theta2);
 void updatePIDs();
-void updateArms();
+void updateArms(bool positionControl);
 void updateWheels(int i);
 void computeGravity(double theta1, double theta2, double &tau1, double &tau2);
 

@@ -51,14 +51,16 @@ void followTrajectory() {
 
         double x_pos = mapStick(controllerMessage.joystick2.x, MAX_DIST);
         double y_pos = mapStick(controllerMessage.joystick2.y, MAX_DIST);
+        // double x_pos = mapStick(controllerMessage.joystick2.x, 1);
+        // double y_pos = mapStick(controllerMessage.joystick2.y, 1);
 
         targetXY = {x_pos, y_pos};
-        targetXY = getClosestPointInWorkspace(targetXY); // constains input x and y to workspace of robot arm
         targetXY = createBarrier(targetXY); // prevents the arm from colliding with the robot body
         targetPose = inverseKinematics(targetXY);
 
         updateSetpointsWheels(forward + turn, forward - turn); // left and right wheel velocities
         updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+        // updateSetpointsArms(x_pos, y_pos); // velocity control
     }
 
     #ifdef AUTONOMOUS
