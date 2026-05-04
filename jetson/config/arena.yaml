@@ -2,10 +2,10 @@
 #
 # All lengths in meters. All angles in radians (*_deg variants allowed).
 # World frame (right-handed):
-#   origin  = center base of Ramp A's lower edge
-#   +X      = robot's initial forward direction (toward the ramps)
-#   +Y      = 90° CCW from +X (robot's left when facing +X)
-#   +Z      = up, gravity-opposed
+#   origin = bottom-left corner of Ramp A lower edge
+# +X = up the ramp / toward Ramp B
+# +Y = left when facing up the ramp
+# +Z = up from the floor
 # Robot pose is still 2D (x, y, theta) in the ground plane; tag poses are
 # full SE(3) because tags are mounted at arbitrary height on walls, tables,
 # and ramp faces.
@@ -22,7 +22,7 @@ arena:
 # AprilTag detector parameters (same as lab8 defaults).
 apriltag:
   family: tag36h11
-  default_size_m: 0.10
+  default_size_m: 0.094
   quad_decimate: 1.0
   quad_sigma: 0.0
   refine_edges: 1
@@ -63,48 +63,96 @@ tags:
   #  grazing angle; avoid unless vertical mounting is impossible)
 
   # --- Ramp approach markers (vertical, on posts at ramp entry) ---
-  - id: 1
-    x:  0.00
-    y:  0.00
-    z:  0.25                    # tag center 25 cm above the floor
+  - id: 4
+    x: 0.05
+    y: -0.682   # assuming right of ramp = negative Y
+    z: 0.31     # center of tag is 31 cm above ground
     roll: -1.5708
     pitch: 0.0
     yaw: -1.5708                # face world -X (toward the robot approaching)
-    size: 0.10
+    size: 0.093
     desc: "ramp_A_base_marker"
-
-  - id: 2
-    x:  0.00
-    y:  0.50
-    z:  0.25
+  - id: 6
+    x: -0.875
+    y: 0.2865
+    z: 0.31
     roll: -1.5708
     pitch: 0.0
-    yaw: -1.5708
-    size: 0.10
-    desc: "return_from_ramp_marker"
+    yaw: 3.1416
+    size: 0.093
+    desc: "start_area_tag"
 
-  # --- Ramp-surface markers (flat on the slope face, used for servoing
-  # while climbing; optional — add if ramp geometry is known in advance) ---
-  # - id: 3
-  #   x: 0.75
-  #   y: 0.00
-  #   z: 0.12                    # middle of ramp A
-  #   roll: 0.0
-  #   pitch: -0.314              # ramp slope ~18°
-  #   yaw:   0.0
-  #   size: 0.08
-  #   desc: "ramp_A_midway_tag"
+  - id: 3
+    x: 0.856
+    y: -1.479
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 3.1416
+    size: 0.093
+    desc: "right_of_ramp_tag"
 
-  # --- Table / dishwasher / tray markers (fill in after measuring arena) ---
-  # - id: 10
-  #   x: -1.50
-  #   y:  1.20
-  #   z:  0.35                    # mounted on front of tray cart
-  #   roll: -1.5708
-  #   pitch: 0.0
-  #   yaw:   0.0                  # face world +Y
-  #   size: 0.10
-  #   desc: "food_tray_prep"
+  - id: 9
+    x: -2.09
+    y: -0.348
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 1.5708
+    size: 0.093
+    desc: "side_area_tag"
+
+  - id: 7
+    x: -0.46
+    y: -4.061
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 0.0
+    size: 0.093
+    desc: "far_field_tag"
+
+  - id: 1
+    x: 0.830
+    y: -3.191
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 0.0
+    size: 0.093
+    desc: "tag_1"
+
+  - id: 2
+    x: 0.449
+    y: -2.925
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 1.5708
+    size: 0.093
+    desc: "tag_2"
+
+  - id: 8
+    x: -1.54
+    y: -3.56
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 1.5708
+    size: 0.093
+    desc: "tag_8"
+
+  - id: 5
+    x: -1.41
+    y: 0.2865
+    z: 0.31
+    roll: -1.5708
+    pitch: 0.0
+    yaw: 3.1416
+    size: 0.093
+    desc: "tag_5"
+
+
 
 # Named waypoints on the ground plane. Keys MUST match the strings used in
 # src/robot/robot_pseudo_functions.cpp executePathPlanTo(...) calls.
@@ -116,7 +164,7 @@ waypoints:
   dinner_table_vicinity:    {x:  0.00, y:  1.80, theta:  1.5708}
   dishwasher_tray_vicinity: {x:  0.00, y: -1.50, theta: -1.5708}
   dishwasher_vicinity:      {x: -1.00, y: -1.80, theta:  3.14159}
-
+  start_position:           {x:  0.865, y:  -1.665, theta:  1.5708}
 # Ramp surfaces — the planner treats these as lethal (planar A* can't cross
 # them); dedicated FSM states (TRAVERSE_RAMP_UP_*) bypass the planner and
 # hand control to the ESP32 IMU-leveled drive loop.
@@ -126,15 +174,15 @@ waypoints:
 # want to reason about tip-over envelopes.
 ramps:
   ramp_A:
-    footprint: {xmin:  0.00, ymin: -0.40, xmax:  1.50, ymax:  0.40}
-    pitch_rad: 0.314              # ~18° climb along +X
-    top_height_m: 0.47            # height at x=xmax
+    footprint: {xmin:  0.00, ymin: 0.00, xmax:  .92, ymax:  -0.61}
+    pitch_rad: 0.325              # ~18° climb along +X
+    top_height_m: 0.31            # height at x=xmax
     direction: "+x"               # climb direction in world frame
   ramp_B:
-    footprint: {xmin:  1.50, ymin: -0.40, xmax:  3.00, ymax:  0.40}
-    pitch_rad: -0.314             # descending along +X from ramp A peak
-    top_height_m: 0.47            # at xmin (shared with ramp A top)
-    direction: "+x"
+    footprint: {xmin:  0.92, ymin: -0.61, xmax:  1.53, ymax:  -1.53}
+    pitch_rad: 0.325            # descending along -y from ramp A peak
+    top_height_m: 0.31            # at xmin (shared with ramp A top)
+    direction: "+y"
 
 # Static non-ramp obstacles for the planar costmap (axis-aligned rectangles).
 obstacles:
