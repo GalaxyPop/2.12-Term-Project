@@ -72,8 +72,7 @@ tags:
     yaw: -1.5708                # face world -X (toward the robot approaching)
     size: 0.093
     desc: "ramp_A_base_marker"
-  -
-    id: 6
+  - id: 6
     x: -0.875
     y: 0.2865
     z: 0.31
@@ -83,7 +82,7 @@ tags:
     size: 0.093
     desc: "start_area_tag"
 
-    id: 3
+  - id: 3
     x: 0.856
     y: -1.479
     z: 0.31
@@ -93,7 +92,7 @@ tags:
     size: 0.093
     desc: "right_of_ramp_tag"
 
-    id: 9
+  - id: 9
     x: -2.09
     y: -0.348
     z: 0.31
@@ -103,7 +102,7 @@ tags:
     size: 0.093
     desc: "side_area_tag"
 
-    id: 7
+  - id: 7
     x: -0.46
     y: -4.061
     z: 0.31
@@ -113,7 +112,7 @@ tags:
     size: 0.093
     desc: "far_field_tag"
 
-    id: 1
+  - id: 1
     x: 0.830
     y: -3.191
     z: 0.31
@@ -123,7 +122,7 @@ tags:
     size: 0.093
     desc: "tag_1"
 
-    id: 2
+  - id: 2
     x: 0.449
     y: -2.925
     z: 0.31
@@ -133,7 +132,7 @@ tags:
     size: 0.093
     desc: "tag_2"
 
-    id: 8
+  - id: 8
     x: -1.54
     y: -3.56
     z: 0.31
@@ -143,7 +142,7 @@ tags:
     size: 0.093
     desc: "tag_8"
 
-    id: 5
+  - id: 5
     x: -1.41
     y: 0.2865
     z: 0.31
