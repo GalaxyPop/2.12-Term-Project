@@ -4,6 +4,7 @@
 #include "PID.h"
 #include "EncoderVelocity.h"
 #include "robot_drive.h"
+#include "robot_motion_control.h"   // R_WHEEL, B_BASE
 #include "kinematics.h"
 #include "util.h"
 
@@ -82,6 +83,16 @@ void updateWheels(int i) {
     velocities[i] = encoder_sign[i] * encoders[i].getVelocity(); // in rad/s
     controlEfforts[i] = pids[i].calculateParallel(velocities[i], setpoints[i]);
     motors[i].drive(controlEfforts[i]);
+}
+
+void v_omega_to_wheels(double v, double w) {
+    // Differential-drive kinematics. left -> setpoints[2], right -> setpoints[1]
+    // per updateSetpointsWheels(). Sign convention matches the existing
+    // setWheelVelocities(v, k) helper: with w = k*v, (v - w*B_BASE)/R_WHEEL
+    // reproduces its left-wheel formula.
+    double phi_l = (v - w * B_BASE) / R_WHEEL;
+    double phi_r = (v + w * B_BASE) / R_WHEEL;
+    updateSetpointsWheels(phi_l, phi_r);
 }
 
 void computeGravity(double theta1, double theta2, double &tau1, double &tau2) {

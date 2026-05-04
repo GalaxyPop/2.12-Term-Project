@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <math.h>
 #include "util.h"
 #include "robot_drive.h"
 #include "EncoderVelocity.h"
@@ -8,12 +9,18 @@
 #include "trajectories.h"
 #include "robot_autonomous.h"
 #include "servo_control.h"
+#include "jetson_link.h"
 
 // #define AUTONOMOUS
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
 bool joystickOverride = false; // once joystick data is received, manual control owns the robot until reset
+
+// Joystick deadzone (above this in |x| or |y|, joystick takes priority).
+static constexpr double JOY_DEADZONE = 0.1;
+// Watchdog: stale Jetson vel command after this many ms -> stop.
+static constexpr uint32_t JETSON_VEL_TIMEOUT_MS = 200;
 
 // based off of initial position of robot arm being straight up, so theta1 is 90 deg and theta2 is 0 deg
 JointSpace targetPose = {THETA1_OFFSET, 0.0}; //initial setpoint
@@ -40,14 +47,28 @@ void setWheelVelocities(float robotVelocity, float k){
     updateSetpointsWheels(left, right);
 }
 
-// If the robot is reading joystick data, it will follow the joystick input.
-// Otherwise it will run the autonomous sequence.
+// Priority (highest first):
+//   1. Joystick on touch: a fresh ESP-NOW packet with |joystick1| above the
+//      deadzone means the operator has grabbed control -> use joystick,
+//      ignore Jetson. Releasing the stick hands control back within one tick.
+//   2. Jetson vel cmd: last cmd < 200 ms old and not estopped -> use (v, w).
+//   3. AUTONOMOUS mode (compile-time, non-default): fall through to sequencer.
+//   4. Watchdog: stop wheels.
+//
+// `joystickOverride` stays latched once touched (used by AUTONOMOUS mode to
+// prevent the scripted sequence from fighting the operator), but does NOT
+// block Jetson control — serial commands can resume the moment the stick is
+// released.
 void followTrajectory() {
-    if (freshWirelessData) {
+    bool joy_touched = freshWirelessData &&
+        (fabs(controllerMessage.joystick1.x) > JOY_DEADZONE ||
+         fabs(controllerMessage.joystick1.y) > JOY_DEADZONE);
+
+    if (joy_touched) {
         joystickOverride = true;
         freshWirelessData = false;
-        double forward = abs(controllerMessage.joystick1.y) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
-        double turn = abs(controllerMessage.joystick1.x) < 0.1 ? 0 : mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
+        double forward = mapDouble(controllerMessage.joystick1.y, -1, 1, -MAX_FORWARD, MAX_FORWARD);
+        double turn    = mapDouble(controllerMessage.joystick1.x, -1, 1, -MAX_TURN, MAX_TURN);
 
         double x_pos = mapStick(controllerMessage.joystick2.x, MAX_DIST);
         double y_pos = mapStick(controllerMessage.joystick2.y, MAX_DIST);
@@ -58,16 +79,31 @@ void followTrajectory() {
         targetXY = createBarrier(targetXY); // prevents the arm from colliding with the robot body
         targetPose = inverseKinematics(targetXY);
 
-        updateSetpointsWheels(forward + turn, forward - turn); // left and right wheel velocities
+        updateSetpointsWheels(forward + turn, forward - turn);
         updateSetpointsArms(targetPose.theta1, targetPose.theta2);
         // updateSetpointsArms(x_pos, y_pos); // velocity control
+        return;
+    }
+
+    // Consume any stale untouched packet so it doesn't linger and block Jetson.
+    if (freshWirelessData) freshWirelessData = false;
+
+    if (!g_jetson_estop &&
+        g_jetson_vel_ts_ms != 0 &&
+        (millis() - g_jetson_vel_ts_ms) < JETSON_VEL_TIMEOUT_MS) {
+        v_omega_to_wheels(g_jetson_vel_v, g_jetson_vel_w);
+        return;
     }
 
     #ifdef AUTONOMOUS
     if (!joystickOverride) {
         runAutonomousSequence();
+        return;
     }
     #endif
+
+    // Watchdog: nothing fresh from either source.
+    updateSetpointsWheels(0.0, 0.0);
 }
 
 void updateOdometry() {

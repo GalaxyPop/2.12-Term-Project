@@ -22,4 +22,7 @@ void updateArms(bool positionControl);
 void updateWheels(int i);
 void computeGravity(double theta1, double theta2, double &tau1, double &tau2);
 
+// Map body-frame (v, w) [m/s, rad/s] to left/right wheel setpoints [rad/s].
+void v_omega_to_wheels(double v, double w);
+
 #endif // ROBOT_DRIVE_H

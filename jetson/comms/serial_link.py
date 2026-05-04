@@ -13,9 +13,13 @@ matching JSON parser extension on the src/robot/robot_main.cpp side
 from __future__ import annotations
 
 import json
+import logging
 import time
 from threading import Event, Lock, Thread
 from typing import Optional
+
+import serial
+import serial.tools.list_ports  # noqa: F401  (left available for user scripts)
 
 from jetson.comms.packets import (
     ArmCmd,
@@ -24,6 +28,8 @@ from jetson.comms.packets import (
     Telemetry,
     VelCmd,
 )
+
+log = logging.getLogger(__name__)
 
 
 class SerialLink:
@@ -39,16 +45,64 @@ class SerialLink:
 
     def start(self) -> None:
         """Open the port, wait for ESP32 ready banner, start reader thread."""
-        # TODO:
-        #   import serial; self._ser = serial.Serial(self.port, self.baud, timeout=0.1)
-        #   time.sleep(2.0)  # ESP32 autoresets on open
-        #   drain initial "{status:ready}" line
-        #   self._reader = Thread(target=self._run, daemon=True); self._reader.start()
-        raise NotImplementedError
+        self._ser = serial.Serial(self.port, self.baud, timeout=0.1)
+        # ESP32-S3 autoresets when the host opens /dev/ttyACM0; the first
+        # ~1 s of writes would be lost without this wait.
+        time.sleep(2.0)
+        self._ser.reset_input_buffer()
+
+        # Drain the "{status: ready}" banner with a short deadline.
+        # Absence is non-fatal (re-opens without a physical reset skip it).
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            raw = self._ser.readline()
+            if not raw:
+                continue
+            try:
+                line = raw.decode("utf-8", errors="strict").strip()
+                d = json.loads(line)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            if d.get("status") == "ready":
+                break
+        else:
+            log.warning("No {status:ready} banner from ESP32 on %s", self.port)
+
+        self._reader = Thread(target=self._run, name="serial-reader", daemon=True)
+        self._reader.start()
 
     def _run(self) -> None:
         """Read lines, parse JSON, drop malformed, update self._latest."""
-        raise NotImplementedError
+        assert self._ser is not None
+        while not self._stop.is_set():
+            try:
+                raw = self._ser.readline()   # blocks up to 0.1 s
+            except serial.SerialException as exc:
+                # Transient USB hiccup (cable wiggle); log once and keep going.
+                log.warning("SerialException in reader: %s", exc)
+                time.sleep(0.05)
+                continue
+            if not raw:
+                continue
+            try:
+                line = raw.decode("utf-8", errors="strict").strip()
+            except UnicodeDecodeError:
+                continue
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # Skip banners / status replies; only telemetry has an "x" key.
+            if "x" not in d or "th" not in d:
+                continue
+            try:
+                tm = Telemetry.from_json(d)
+            except (KeyError, ValueError, TypeError):
+                continue
+            with self._lock:
+                self._latest = tm
 
     def send_vel(self, v: float, w: float) -> None:
         self._seq += 1
