@@ -4,5 +4,6 @@
 void gripClose();
 void gripOpen();
 void setupServo();
+void writeServoUS(int pulse_us);
 
 #endif
