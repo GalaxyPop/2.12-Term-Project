@@ -16,7 +16,7 @@ RobotMessage robotMessage;
 void onSendData(const uint8_t *mac_addr, esp_now_send_status_t status) {
     bool success = status == ESP_NOW_SEND_SUCCESS ;
     if (success && Serial) {
-    	// Serial.println("Sent");
+    	Serial.println("Sent");
 		#ifdef PRINT_CONTROLLER
 			controllerMessage.print();
 		#endif

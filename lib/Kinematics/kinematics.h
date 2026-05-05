@@ -15,6 +15,7 @@ const double END_EFFECTOR_MASS_KG = 0.482;
 #define DELTA_MAX 0
 #define MAX_DIST (L1 + L2 - DELTA_MAX)
 #define MIN_DIST (L1 + L2) * 0.25
+#define MAX_SPEED 1 // in rad/s
 
 #define THETA1_OFFSET M_PI / 2.0
 #define THETA2_OFFSET M_PI / 2.0

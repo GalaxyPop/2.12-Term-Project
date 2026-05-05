@@ -7,6 +7,7 @@
 #include "robot_autonomous.h"
 
 extern TaskSpace targetXY;
+extern bool armPositionControl; // if true, arm's position will be controlled by joystick inputs
 
 void setup() {
     Serial.begin();
@@ -23,7 +24,7 @@ void loop() {
 
     // Update PID at 200Hz
     EVERY_N_MILLIS(5) {
-        updatePIDs();
+        updatePIDs(armPositionControl);
     }
 
     // Send and print robot values at 20Hz
