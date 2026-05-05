@@ -12,6 +12,7 @@
 #include "jetson_link.h"
 
 // #define AUTONOMOUS
+#define TEST_ARM
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
@@ -40,6 +41,10 @@ double t1 = 0;
 double t2 = 0;
 bool servo_open = 0;
 
+double deg2rad(double deg) {
+    return deg * M_PI / 180.0;
+}
+
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
 void setWheelVelocities(float robotVelocity, float k){
@@ -64,6 +69,100 @@ void followTrajectory() {
     bool joy_touched = freshWirelessData &&
         (fabs(controllerMessage.joystick1.x) > JOY_DEADZONE ||
          fabs(controllerMessage.joystick1.y) > JOY_DEADZONE);
+
+    #ifdef TEST_ARM
+    {
+        static unsigned long lastIncrement = 0;
+        static bool forwardStarted = false;
+        static float startX = 0.0f, startY = 0.0f;
+        static bool homingDone = false;
+        static unsigned long homingStart = 0;
+
+        const double INIT_THETA1 = deg2rad(34.0);
+        const double INIT_THETA2 = deg2rad(-100.0);
+        const double HOMING_TOL  = deg2rad(2.0);
+
+        if (!homingDone) {
+            if (homingStart == 0) {
+                homingStart = millis();
+                targetPose.theta1 = 0.0;
+                targetPose.theta2 = 0.0;
+            }
+
+            static unsigned long lastHomingStep = 0;
+            const double STEP = deg2rad(5.0);
+            const unsigned long STEP_INTERVAL = 200;
+
+            if (millis() - lastHomingStep >= STEP_INTERVAL) {
+                lastHomingStep = millis();
+
+                if (targetPose.theta1 < INIT_THETA1 - deg2rad(0.5))
+                    targetPose.theta1 = min(targetPose.theta1 + STEP, INIT_THETA1);
+                else if (targetPose.theta1 > INIT_THETA1 + deg2rad(0.5))
+                    targetPose.theta1 = max(targetPose.theta1 - STEP, INIT_THETA1);
+
+                if (targetPose.theta2 < INIT_THETA2 - deg2rad(0.5))
+                    targetPose.theta2 = min(targetPose.theta2 + STEP, INIT_THETA2);
+                else if (targetPose.theta2 > INIT_THETA2 + deg2rad(0.5))
+                    targetPose.theta2 = max(targetPose.theta2 - STEP, INIT_THETA2);
+
+                Serial.printf("Homing -> theta1: %.1f° theta2: %.1f°\n",
+                              targetPose.theta1 * 180.0/M_PI,
+                              targetPose.theta2 * 180.0/M_PI);
+            }
+
+            updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+            updateSetpointsWheels(0.0, 0.0);
+
+            double pos1 = -encoders[0].getPosition();
+            double pos2 =  encoders[3].getPosition();
+            bool atTarget = abs(pos1 - INIT_THETA1) < HOMING_TOL &&
+                            abs(pos2 - INIT_THETA2) < HOMING_TOL;
+
+            if (atTarget || millis() - homingStart >= 15000) {
+                encoders[0].resetPosition();
+                encoders[3].resetPosition();
+                resetArmSetpoints(0.0, 0.0);
+                targetPose.theta1 = 0.0;
+                targetPose.theta2 = 0.0;
+                homingDone = true;
+                lastIncrement = millis();
+                Serial.println("=== Homing done, arm test starting ===");
+            }
+            return;
+        }
+
+        // Phase 1 & 2 : incréments du bras toutes les 400ms
+        if (millis() - lastIncrement >= 400) {
+            lastIncrement = millis();
+
+            if (targetPose.theta2 < deg2rad(25.0))
+                targetPose.theta2 = min(targetPose.theta2 + deg2rad(6.0), deg2rad(25.0));
+
+            if (targetPose.theta2 >= deg2rad(20.0) && targetPose.theta1 > deg2rad(-44.0))
+                targetPose.theta1 = max(targetPose.theta1 - deg2rad(6.0), deg2rad(-44.0));
+
+            Serial.printf("SP  theta1: %.1f deg | theta2: %.1f deg\n",
+                          targetPose.theta1 * 180.0 / M_PI,
+                          targetPose.theta2 * 180.0 / M_PI);
+            Serial.printf("ENC theta1: %.4f rad | theta2: %.4f rad\n",
+                          encoders[0].getPosition(),
+                          encoders[3].getPosition());
+        }
+
+        // Ouvrir le gripper une fois le bras en position finale
+        static bool gripOpened = false;
+        if (!gripOpened && targetPose.theta1 <= deg2rad(-44.0) && targetPose.theta2 >= deg2rad(25.0)) {
+            gripOpen();
+            gripOpened = true;
+            Serial.println("=== Gripper ouvert ===");
+        }
+
+        updateSetpointsArms(targetPose.theta1, targetPose.theta2);
+        updateSetpointsWheels(0.0, 0.0);
+        return;
+    }
+    #endif
 
     if (joy_touched) {
         joystickOverride = true;

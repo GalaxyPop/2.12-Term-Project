@@ -67,37 +67,21 @@ void loop() {
     // and gating the reader behind EVERY_N_MILLIS drops bytes mid-packet.
     handleJetsonSerial();
 
-    setupServo();
-    gripClose();
-}
-
-void loop() {
-    
-    // Update velocity setpoints based on trajectory at 50Hz
     EVERY_N_MILLIS(20) {
         scanIMU();
         followTrajectory();
     }
 
-    // Update PID at 200Hz
     EVERY_N_MILLIS(5) {
         updatePIDs();
     }
 
-    // Send and print robot values at 20Hz
     EVERY_N_MILLIS(50) {
         updateOdometry();
         sendRobotData();
     }
 
-    // Telemetry to Jetson at 50Hz.
     EVERY_N_MILLIS(20) {
         sendJetsonTelemetry();
     }
-
-        Serial.printf("x: %.2f, y: %.2f, theta: %.2f\n",
-                    robotMessage.x, robotMessage.y, robotMessage.theta,
-                    robotMessage.a, robotMessage.b);
-        Serial.printf("x: %.2f, y: %.2f\n",
-                    targetXY.x, targetXY.y);
-    }
+}

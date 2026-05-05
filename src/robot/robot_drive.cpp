@@ -48,6 +48,11 @@ void updateSetpointsArms(double theta1, double theta2) {
     setpoints[3] += alpha*(theta2 - setpoints[3]); // link 2
 }
 
+void resetArmSetpoints(double t1, double t2) {
+    setpoints[0] = t1;
+    setpoints[3] = t2;
+}
+
 void updatePIDs() {
     updateArms(true); // position control for arms if true, velocity control if false
     updateWheels(1); // right wheel

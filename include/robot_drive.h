@@ -17,6 +17,7 @@
 void setupDrive();
 void updateSetpointsWheels(double left, double right);
 void updateSetpointsArms(double theta1, double theta2);
+void resetArmSetpoints(double t1, double t2);
 void updatePIDs();
 void updateArms(bool positionControl);
 void updateWheels(int i);
