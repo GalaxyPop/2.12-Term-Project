@@ -40,3 +40,19 @@ planning:
 fsm:
   state_entry_timeout_s: 10.0  # default per-state timeout -> RECOVER
   tick_rate_hz: 20
+
+tag_docking:
+  # Polar-coordinate go-to-pose gains (Siciliano §11.6).
+  # Stability: k_rho > 0, k_beta < 0, k_alpha + 5/3*k_beta - 2/pi*k_rho > 0.
+  k_rho: 0.30
+  k_alpha: 0.80
+  k_beta: -0.15
+  v_max_park: 0.10             # m/s, conservative for precise docking
+  omega_max_park: 0.8          # rad/s
+  slow_radius_m: 0.10          # scale v linearly below this rho
+  tol_xy_m: 0.02
+  tol_yaw_rad: 0.052           # ~3 deg
+  stop_v: 0.02                 # |v_cmd| below this counts as "stopped"
+  stop_omega: 0.10             # |omega_cmd| below this counts as "stopped"
+  parked_debounce_frames: 5
+  tag_lost_timeout_s: 1.0
