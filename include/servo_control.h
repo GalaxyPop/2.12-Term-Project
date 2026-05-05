@@ -5,4 +5,4 @@ void gripClose();
 void gripOpen();
 void setupServo();
 
-#endif // SERVO_CONTROL_H
+#endif

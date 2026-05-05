@@ -4,19 +4,20 @@
 #include "PID.h"
 #include "EncoderVelocity.h"
 #include "robot_drive.h"
+#include "robot_motion_control.h"   // R_WHEEL, B_BASE
 #include "kinematics.h"
 #include "util.h"
 
-MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 0}, {A_DIR2, A_PWM2, 1},
-                                   {B_DIR1, B_PWM1, 2}, {B_DIR2, B_PWM2, 3} };
+MotorDriver motors[NUM_MOTORS] = { {A_DIR1, A_PWM1, 4}, {A_DIR2, A_PWM2, 5},
+                                   {B_DIR1, B_PWM1, 6}, {B_DIR2, B_PWM2, 7} };
 
 EncoderVelocity encoders[NUM_MOTORS] = { {ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_60_RPM, 0.2},
                                          {ENCODER2_A_PIN, ENCODER2_B_PIN, CPR_312_RPM, 0.2},
                                          {ENCODER3_A_PIN, ENCODER3_B_PIN, CPR_312_RPM, 0.2},
                                          {ENCODER4_A_PIN, ENCODER4_B_PIN, CPR_60_RPM, 0.2} };
 
-PID pids[NUM_MOTORS] = { {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false}, {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false},
-                         {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm, Ki_arm, Kd_arm, 0, pidTau, false} };
+PID pids[NUM_MOTORS] = { {Kp_arm_1, Ki_arm_1, Kd_arm_1, 0, pidTau_arm, false}, {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false},
+                         {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm_2, Ki_arm_2, Kd_arm_2, 0, pidTau_arm, false} };
 
 double alpha = 0.05;
 double torqueToDuty1 = 0.05;
@@ -94,6 +95,16 @@ void updateWheels() {
 
     motors[1].drive(controlEfforts[1]);
     motors[2].drive(controlEfforts[2]);
+}
+
+void v_omega_to_wheels(double v, double w) {
+    // Differential-drive kinematics. left -> setpoints[2], right -> setpoints[1]
+    // per updateSetpointsWheels(). Sign convention matches the existing
+    // setWheelVelocities(v, k) helper: with w = k*v, (v - w*B_BASE)/R_WHEEL
+    // reproduces its left-wheel formula.
+    double phi_l = (v - w * B_BASE) / R_WHEEL;
+    double phi_r = (v + w * B_BASE) / R_WHEEL;
+    updateSetpointsWheels(phi_l, phi_r);
 }
 
 void computeGravity(double theta1, double theta2, double &tau1, double &tau2) {

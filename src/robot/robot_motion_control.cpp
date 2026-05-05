@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <math.h>
 #include "util.h"
 #include "robot_drive.h"
 #include "EncoderVelocity.h"
@@ -8,18 +9,26 @@
 #include "trajectories.h"
 #include "robot_autonomous.h"
 #include "servo_control.h"
+#include "jetson_link.h"
 
 // #define AUTONOMOUS
+// #define TEST_ARM
 
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
 bool joystickOverride = false; // once joystick data is received, manual control owns the robot until reset
+
 bool armPositionControl = false; // if true, arm's position will be controlled by joystick inputs
 bool prevArmPositionControl = armPositionControl;
+bool endEffectorControl = false; // if true, gripper will be closed, otherwise it will be open
+bool prevEndEffectorControl = endEffectorControl;
 
-// jointspace and taskspace representations of the arm's target position
-JointSpace targetPose;
-TaskSpace targetXY;
+// Jointspace and taskspace representations of the arm's target position.
+JointSpace targetPose = {THETA1_OFFSET, 0.0};
+TaskSpace targetXY = {0, L1 + L2};
+
+// Watchdog: stale Jetson vel command after this many ms -> stop.
+static constexpr uint32_t JETSON_VEL_TIMEOUT_MS = 200;
 
 double robotVelocity = 0; // velocity of robot, in m/s
 double k = 0; // curvature k is 1/radius from center of rotation circle
@@ -31,6 +40,11 @@ double prevPhiL = 0;
 double prevPhiR = 0;
 double t1 = 0;
 double t2 = 0;
+bool servo_open = 0;
+
+double deg2rad(double deg) {
+    return deg * M_PI / 180.0;
+}
 
 // Sets the desired wheel velocities based on desired robot velocity in m/s
 // and k curvature in 1/m representing 1/(radius of curvature)
@@ -40,8 +54,19 @@ void setWheelVelocities(float robotVelocity, float k){
     updateSetpointsWheels(left, right);
 }
 
-// If the robot is reading joystick data, it will follow the joystick input.
-// Otherwise it will run the autonomous sequence.
+// Priority (highest first):
+//   1. Joystick on touch: a fresh ESP-NOW packet with |joystick1| above the
+//      deadzone means the operator has grabbed control -> use joystick,
+//      ignore Jetson. Releasing the stick hands control back within one tick.
+//   2. Jetson vel cmd: last cmd < 200 ms old and not estopped -> use (v, w).
+//   3. AUTONOMOUS mode (compile-time, non-default): fall through to sequencer.
+//   4. Watchdog: stop wheels.
+//
+// `joystickOverride` stays latched once touched (used by AUTONOMOUS mode to
+// prevent the scripted sequence from fighting the operator), but does NOT
+// block Jetson control — serial commands can resume the moment the stick is
+// released.
+
 void followTrajectory() {
     if (freshWirelessData) { // if contoller is sending information to robot
         freshWirelessData = false;
@@ -55,6 +80,17 @@ void followTrajectory() {
                 updateSetpointsArmsVelocity(0, 0);
             }
             prevArmPositionControl = armPositionControl;
+        }
+
+        // end effector control (gripper open/close)
+        endEffectorControl = controllerMessage.buttonR; // if right button is pressed, gripper closes, otherwise it opens
+        if (endEffectorControl != prevEndEffectorControl) {
+            if (endEffectorControl) {
+                gripClose();
+            } else {
+                gripOpen();
+            }
+            prevEndEffectorControl = endEffectorControl;
         }
 
         // wheel control
@@ -79,11 +115,110 @@ void followTrajectory() {
         }
     }
 
-    // only runs if autonomous mode is enabled and joystick has not taken over
-    #ifdef AUTONOMOUS
-    if (!joystickOverride) {
-        runAutonomousSequence();
+    #ifdef TEST_ARM
+    {
+        static unsigned long lastIncrement = 0;
+        static bool homingDone = false;
+        static unsigned long homingStart = 0;
+
+        const double INIT_THETA1 = deg2rad(34.0);
+        const double INIT_THETA2 = deg2rad(-100.0);
+        const double HOMING_TOL  = deg2rad(2.0);
+
+        if (!homingDone) {
+            if (homingStart == 0) {
+                homingStart = millis();
+                targetPose.theta1 = 0.0;
+                targetPose.theta2 = 0.0;
+            }
+
+            static unsigned long lastHomingStep = 0;
+            const double STEP = deg2rad(5.0);
+            const unsigned long STEP_INTERVAL = 200;
+
+            if (millis() - lastHomingStep >= STEP_INTERVAL) {
+                lastHomingStep = millis();
+
+                if (targetPose.theta1 < INIT_THETA1 - deg2rad(0.5))
+                    targetPose.theta1 = min(targetPose.theta1 + STEP, INIT_THETA1);
+                else if (targetPose.theta1 > INIT_THETA1 + deg2rad(0.5))
+                    targetPose.theta1 = max(targetPose.theta1 - STEP, INIT_THETA1);
+
+                if (targetPose.theta2 < INIT_THETA2 - deg2rad(0.5))
+                    targetPose.theta2 = min(targetPose.theta2 + STEP, INIT_THETA2);
+                else if (targetPose.theta2 > INIT_THETA2 + deg2rad(0.5))
+                    targetPose.theta2 = max(targetPose.theta2 - STEP, INIT_THETA2);
+
+                Serial.printf("Homing -> theta1: %.1f° theta2: %.1f°\n",
+                              targetPose.theta1 * 180.0/M_PI,
+                              targetPose.theta2 * 180.0/M_PI);
+            }
+
+            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+            updateSetpointsWheels(0.0, 0.0);
+
+            double pos1 = -encoders[0].getPosition();
+            double pos2 =  encoders[3].getPosition();
+            bool atTarget = abs(pos1 - INIT_THETA1) < HOMING_TOL &&
+                            abs(pos2 - INIT_THETA2) < HOMING_TOL;
+
+            if (atTarget || millis() - homingStart >= 15000) {
+                encoders[0].resetPosition();
+                encoders[3].resetPosition();
+                resetArmPositionSetpoints();
+                targetPose.theta1 = 0.0;
+                targetPose.theta2 = 0.0;
+                homingDone = true;
+                lastIncrement = millis();
+                Serial.println("=== Homing done, arm test starting ===");
+            }
+            return;
+        }
+
+        // Phase 1 & 2 : incréments du bras toutes les 400ms
+        if (millis() - lastIncrement >= 400) {
+            lastIncrement = millis();
+
+            if (targetPose.theta2 < deg2rad(25.0))
+                targetPose.theta2 = min(targetPose.theta2 + deg2rad(6.0), deg2rad(25.0));
+
+            if (targetPose.theta2 >= deg2rad(20.0) && targetPose.theta1 > deg2rad(-44.0))
+                targetPose.theta1 = max(targetPose.theta1 - deg2rad(6.0), deg2rad(-44.0));
+
+            Serial.printf("SP  theta1: %.1f deg | theta2: %.1f deg\n",
+                          targetPose.theta1 * 180.0 / M_PI,
+                          targetPose.theta2 * 180.0 / M_PI);
+            Serial.printf("ENC theta1: %.4f rad | theta2: %.4f rad\n",
+                          encoders[0].getPosition(),
+                          encoders[3].getPosition());
+        }
+
+        // Ouvrir le gripper une fois le bras en position finale
+        static bool gripOpened = false;
+        if (!gripOpened && targetPose.theta1 <= deg2rad(-44.0) && targetPose.theta2 >= deg2rad(25.0)) {
+            gripOpen();
+            gripOpened = true;
+            Serial.println("=== Gripper ouvert ===");
+        }
+
+        updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+        updateSetpointsWheels(0.0, 0.0);
+        return;
     }
+    #endif
+
+    if (!g_jetson_estop &&
+        g_jetson_vel_ts_ms != 0 &&
+        (millis() - g_jetson_vel_ts_ms) < JETSON_VEL_TIMEOUT_MS) {
+        v_omega_to_wheels(g_jetson_vel_v, g_jetson_vel_w);
+        return;
+    }
+
+    #ifdef AUTONOMOUS
+        if (!joystickOverride) {
+            runAutonomousSequence();
+            return;
+        }
     #endif
 }
 

@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Adafruit_BNO08x.h>
-#include "imu.h"
 #include "robot_pinout.h"
 #include "robot_motion_control.h"
 
@@ -86,11 +85,12 @@ void scanIMU() {
     // last = now;
     // Serial.print(sensorValue.status);     Serial.print("\t");  // This is accuracy in the range of 0 to 3
     // Serial.println("yaw: \t\t roll: \n\r");
-    Serial.println("turn-angle: \t tilt-angle: \n\r");
-    Serial.print(ypr.yaw);                Serial.print("\t\t");
+    // Disabled: unconditional prints here would shred the Jetson JSON stream.
+    // Serial.println("turn-angle: \t tilt-angle: \n\r");
+    // Serial.print(ypr.yaw);                Serial.print("\t\t");
     // Serial.print(ypr.pitch+4);    Serial.print("\t");
     // Serial.println("roll:");
-    Serial.println(ypr.roll);
+    // Serial.println(ypr.roll);
   }
 
 }

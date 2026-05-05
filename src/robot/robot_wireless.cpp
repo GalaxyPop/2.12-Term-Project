@@ -14,15 +14,20 @@ ControllerMessage controllerMessage;
 RobotMessage robotMessage;
 
 void onSendData(const uint8_t *mac_addr, esp_now_send_status_t status) {
-    bool success = status == ESP_NOW_SEND_SUCCESS ;
-    if (success && Serial) {
-    	// Serial.println("Sent");
-		#ifdef PRINT_ROBOT
-			robotMessage.print();
-		#endif
-    } else {
-      	Serial.println("Failed");
-    }
+    // Serial is shared with the Jetson JSON stream — do not print per-packet
+    // ACKs/NACKs here. Re-enable via PRINT_ROBOT only when debugging offline.
+    #ifdef PRINT_ROBOT
+        bool success = status == ESP_NOW_SEND_SUCCESS;
+        if (success && Serial) {
+            Serial.println("Sent");
+            robotMessage.print();
+        } else {
+            Serial.println("Failed");
+        }
+    #else
+        (void)mac_addr;
+        (void)status;
+    #endif
 }
 
 void onRecvData(const uint8_t * mac, const uint8_t *incomingData, int len) {
