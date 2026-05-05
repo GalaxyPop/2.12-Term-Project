@@ -16,8 +16,6 @@
 #define Ki_arm_2 0
 #define Kd_arm_2 0.03
 
-#define pidTau_arm 0.05
-
 #define MAX_FORWARD 6
 #define MAX_TURN 3
 

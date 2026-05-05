@@ -9,6 +9,7 @@
 #include "trajectories.h"
 #include "robot_autonomous.h"
 #include "servo_control.h"
+#include "robot_imu.h"
 // #include "jetson_link.h"
 
 // #define AUTONOMOUS
@@ -105,7 +106,10 @@ void followTrajectory() {
             targetXY = {x_pos, y_pos};
             targetXY = createBarrier(targetXY); // prevents the arm from colliding with the robot body
             targetPose = inverseKinematics(targetXY);
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+            // updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+
+            // IMU testing
+            updateSetpointsArmsPosition(M_PI/2, -ypr.roll);
 
         } else { // joystick controls arm velocity instead of position
             double theta1_dot = mapStick(controllerMessage.joystick2.x, MAX_SPEED);

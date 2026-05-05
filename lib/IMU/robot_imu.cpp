@@ -2,7 +2,7 @@
 #include <Adafruit_BNO08x.h>
 #include "robot_pinout.h"
 #include "robot_motion_control.h"
-
+#include "robot_imu.h"
 
 // USE ROLL FOR 'alpha' (tilt on the ramp -- neg sign makes pos alpha on way up, neg on way down)
 // USE YAW FOR turn updating (increase to left, decrease to right);
@@ -44,12 +44,12 @@ void quaternionToEuler(float qr, float qi, float qj, float qk, euler_t* ypr, boo
 
     ypr->yaw = atan2(2.0 * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
     ypr->pitch = asin(-2.0 * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
-    ypr->roll = atan2(2.0 * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
+    ypr->roll = -atan2(2.0 * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
 
     if (degrees) {
       ypr->yaw *= RAD_TO_DEG;
       ypr->pitch *= RAD_TO_DEG;
-      ypr->roll *= -RAD_TO_DEG; //neg sign makes pos alpha on way up, neg on way down
+      ypr->roll *= RAD_TO_DEG; //neg sign makes pos alpha on way up, neg on way down
     }
 }
 
@@ -73,10 +73,10 @@ void scanIMU() {
     // in this demo only one report type will be received depending on FAST_MODE define (above)
     switch (sensorValue.sensorId) {
       case SH2_ARVR_STABILIZED_RV:
-        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &ypr, true);
+        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &ypr, false);
       case SH2_GYRO_INTEGRATED_RV:
         // faster (more noise?)
-        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &ypr, true);
+        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &ypr, false);
         break;
     }
     static long last = 0;
