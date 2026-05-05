@@ -9,7 +9,7 @@
 #include "trajectories.h"
 #include "robot_autonomous.h"
 #include "servo_control.h"
-#include "jetson_link.h"
+// #include "jetson_link.h"
 
 // #define AUTONOMOUS
 // #define TEST_ARM
@@ -40,7 +40,6 @@ double prevPhiL = 0;
 double prevPhiR = 0;
 double t1 = 0;
 double t2 = 0;
-bool servo_open = 0;
 
 double deg2rad(double deg) {
     return deg * M_PI / 180.0;
@@ -207,12 +206,12 @@ void followTrajectory() {
     }
     #endif
 
-    if (!g_jetson_estop &&
-        g_jetson_vel_ts_ms != 0 &&
-        (millis() - g_jetson_vel_ts_ms) < JETSON_VEL_TIMEOUT_MS) {
-        v_omega_to_wheels(g_jetson_vel_v, g_jetson_vel_w);
-        return;
-    }
+    // if (!g_jetson_estop &&
+    //     g_jetson_vel_ts_ms != 0 &&
+    //     (millis() - g_jetson_vel_ts_ms) < JETSON_VEL_TIMEOUT_MS) {
+    //     v_omega_to_wheels(g_jetson_vel_v, g_jetson_vel_w);
+    //     return;
+    // }
 
     #ifdef AUTONOMOUS
         if (!joystickOverride) {

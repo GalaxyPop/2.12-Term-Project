@@ -6,17 +6,17 @@
 #define Kp_wheels 0.25
 #define Ki_wheels 0.01
 #define Kd_wheels 0
-
 #define pidTau 0.1
 
-#define Kp_arm_1 10
-#define Ki_arm_1 0.1
-#define Kd_arm_1 0.15
-#define pidTau_arm 0.05
+#define Kp_arm_1 1
+#define Ki_arm_1 0
+#define Kd_arm_1 0.03
 
-#define Kp_arm_2 10
-#define Ki_arm_2 0.1
-#define Kd_arm_2 0.15
+#define Kp_arm_2 1
+#define Ki_arm_2 0
+#define Kd_arm_2 0.03
+
+#define pidTau_arm 0.05
 
 #define MAX_FORWARD 6
 #define MAX_TURN 3
