@@ -2,7 +2,7 @@
 #include <Adafruit_BNO08x.h>
 #include "robot_pinout.h"
 #include "robot_motion_control.h"
-
+#include "robot_imu.h"
 
 // USE ROLL FOR 'alpha' (tilt on the ramp -- neg sign makes pos alpha on way up, neg on way down)
 // USE YAW FOR turn updating (increase to left, decrease to right);
@@ -73,10 +73,10 @@ void scanIMU() {
     // in this demo only one report type will be received depending on FAST_MODE define (above)
     switch (sensorValue.sensorId) {
       case SH2_ARVR_STABILIZED_RV:
-        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &ypr, true);
+        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &ypr, false);
       case SH2_GYRO_INTEGRATED_RV:
         // faster (more noise?)
-        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &ypr, true);
+        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &ypr, false);
         break;
     }
     static long last = 0;

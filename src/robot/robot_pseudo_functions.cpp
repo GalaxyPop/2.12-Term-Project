@@ -4,6 +4,7 @@
 #include "robot_drive.h"
 #include "robot_motion_control.h"
 #include "wireless.h"
+#include "robot_imu.h"
 
 extern RobotMessage robotMessage;
 

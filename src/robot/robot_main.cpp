@@ -8,6 +8,7 @@
 // #include "jetson_link.h"
 #include "robot_pinout.h"
 #include "servo_control.h"
+#include "robot_imu.h"
 
 extern bool armPositionControl; // if true, arm's position will be controlled by joystick inputs
 
@@ -22,6 +23,7 @@ void setup() {
     setupDrive(); // arms and wheels
     setupWireless(); // wireless comms
     setupAutonomous(); // autonomous sequence
+    setupIMU(); // orientation sensing
     // setupJetsonLink();
 }
 
@@ -31,7 +33,7 @@ void loop() {
     // handleJetsonSerial();
 
     EVERY_N_MILLIS(20) {
-        // scanIMU();
+        scanIMU();
         followTrajectory();
     }
 

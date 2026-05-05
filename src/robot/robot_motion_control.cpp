@@ -9,6 +9,7 @@
 #include "trajectories.h"
 #include "robot_autonomous.h"
 #include "servo_control.h"
+#include "robot_imu.h"
 // #include "jetson_link.h"
 
 // #define AUTONOMOUS

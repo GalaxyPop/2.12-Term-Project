@@ -16,8 +16,8 @@ EncoderVelocity encoders[NUM_MOTORS] = { {ENCODER1_A_PIN, ENCODER1_B_PIN, CPR_60
                                          {ENCODER3_A_PIN, ENCODER3_B_PIN, CPR_312_RPM, 0.2},
                                          {ENCODER4_A_PIN, ENCODER4_B_PIN, CPR_60_RPM, 0.2} };
 
-PID pids[NUM_MOTORS] = { {Kp_arm_1, Ki_arm_1, Kd_arm_1, 0, pidTau_arm, false}, {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false},
-                         {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm_2, Ki_arm_2, Kd_arm_2, 0, pidTau_arm, false} };
+PID pids[NUM_MOTORS] = { {Kp_arm_1, Ki_arm_1, Kd_arm_1, 0, pidTau, false}, {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false},
+                         {Kp_wheels, Ki_wheels, Kd_wheels, 0, pidTau, false}, {Kp_arm_2, Ki_arm_2, Kd_arm_2, 0, pidTau, false} };
 
 double alpha = 0.05;
 double torqueToDuty1 = 0.05;
