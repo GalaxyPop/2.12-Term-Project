@@ -109,7 +109,7 @@ void followTrajectory() {
             // updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
 
             // IMU testing
-            updateSetpointsArmsPosition(M_PI/2, -ypr.roll);
+            updateSetpointsArmsPosition(M_PI/2, 0);
 
         } else { // joystick controls arm velocity instead of position
             double theta1_dot = mapStick(controllerMessage.joystick2.x, MAX_SPEED);
