@@ -21,6 +21,11 @@ void setup() {
     joystick2.setup(); // added second joystick setup
 
     Serial.println("Setup complete.");
+
+    // In order to use BOUNCE for button
+    // bounce.attach( BUTTON_R_PIN ,  INPUT_PULLUP ); // USE INTERNAL PULL-UP
+    // bounce.interval(5); // interval in ms
+
 }
 
 void loop() {
