@@ -17,6 +17,7 @@
 extern RobotMessage robotMessage;
 extern ControllerMessage controllerMessage;
 bool joystickOverride = false; // once joystick data is received, manual control owns the robot until reset
+extern euler_t ypr;
 
 bool armPositionControl = false; // if true, arm's position will be controlled by joystick inputs
 bool prevArmPositionControl = armPositionControl;
@@ -106,6 +107,10 @@ void followTrajectory() {
             targetXY = createBarrier(targetXY); // prevents the arm from colliding with the robot body
             targetPose = inverseKinematics(targetXY);
             updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+            
+            // IMU balancing:
+            // updateSetpointsArms(PI/2, -ypr.roll); 
+
 
         } else { // joystick controls arm velocity instead of position
             double theta1_dot = mapStick(controllerMessage.joystick2.x, MAX_SPEED);

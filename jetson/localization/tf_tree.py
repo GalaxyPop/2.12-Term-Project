@@ -2,7 +2,8 @@
 
 Frames:
     world        : arena fixed frame (origin at ramp A base, on the ground)
-    base_link    : robot center on the ground plane, +X fwd, +Y left, +Z up.
+    base_link    : robot center on the ground plane, +X fwd, +Y left, +Z up. 
+                    (** facing the ramp**)
                    Only translates/yaws in world when on flat ground; pitches
                    and rolls non-trivially on ramps.
     camera_link  : camera body on the robot (forward-pointing, level when
