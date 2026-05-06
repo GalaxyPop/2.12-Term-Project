@@ -14,7 +14,7 @@
 
 // #define AUTONOMOUS
 // #define RAMP
-// #define PICKUP_TRAY
+#define PICKUP_TRAY
 
 #if defined(RAMP) && defined(PICKUP_TRAY)
     #error "Define only one of RAMP or PICKUP_TRAY at a time."
@@ -45,6 +45,7 @@ double robotVelocity = 0; // velocity of robot, in m/s
 double k = 0; // curvature k is 1/radius from center of rotation circle
 
 extern EncoderVelocity encoders[NUM_MOTORS];
+extern double positions[NUM_MOTORS];  // absolute joint angles, maintained by updateArms()
 double currPhiL = 0;
 double currPhiR = 0;
 double prevPhiL = 0;
@@ -210,255 +211,187 @@ void followTrajectory() {
 
     #ifdef PICKUP_TRAY
     {
-        static unsigned long lastIncrement = 0;
-        static bool forwardStarted = false;
-        static bool firstForwardDone = false;
-        static bool armAgainstTable = false;
-        static bool forwardDone = false;
-        static bool backwardDone = false;
-        static bool tableResetDone = false;
-        static bool gripperClosed = false;
-        static bool theta2BackwardResetDone = false;
-        static bool finalTheta2ResetDone = false;
-        static bool finalTheta2Done = false;
-        static bool homingDone = false;
-        static unsigned long homingStart = 0;
-        static unsigned long firstForwardStartTime = 0;
-        static unsigned long secondForwardStartTime = 0;
-        static unsigned long gripperCloseTime = 0;
-        static unsigned long backwardStartTime = 0;
+        // PICKUP_TRAY commands arm joints via positionSetpoints[], so the
+        // PIDs must run in position mode. The global is otherwise only
+        // flipped by the joystick path, which FSM_OWNS_MOTION disables.
+        armPositionControl = true;
 
-        const double INIT_THETA1 = deg2rad(36.0);
-        const double INIT_THETA2 = deg2rad(-100.0);
-        const double HOMING_TOL  = deg2rad(2.0);
+        // ─── Trigger gate ────────────────────────────────────────────
+        // Sequence stays IDLE until an operator trigger arrives. Two
+        // sources, OR'd:
+        //   1. Serial 'g' byte (current testing). Works from any host
+        //      that opens /dev/ttyACM0 at 921600 — pio monitor window,
+        //      screen, or a python serial.write from an SSH session
+        //      on the Jetson.
+        //   2. D-pad UP (placeholder). controllerMessage.dPad is not
+        //      populated by the current controller firmware, so this
+        //      branch is inert today; it activates automatically once
+        //      the controller populates dPad.up.
+        //
+        // TODO: remove the serial branch when handleJetsonSerial() is
+        //       enabled in robot_main.cpp — they share Serial.read().
+        static bool pickupArmed = false;
+        static bool idleAnnounced = false;
+        static bool prevDpad = false;
 
-        // ─── Homing ──────────────────────────────────────────────────
-        if (!homingDone) {
-            if (homingStart == 0) {
-                homingStart = millis();
-                targetPose.theta1 = 0.0;
-                targetPose.theta2 = 0.0;
+        if (!pickupArmed) {
+            if (!idleAnnounced) {
+                Serial.println("=== PICKUP_TRAY idle — send 'g' over serial or press D-pad UP ===");
+                idleAnnounced = true;
             }
 
-            static unsigned long lastHomingStep = 0;
-            const double STEP = deg2rad(5.0);
-            const unsigned long STEP_INTERVAL = 200;
-
-            if (millis() - lastHomingStep >= STEP_INTERVAL) {
-                lastHomingStep = millis();
-
-                if (targetPose.theta1 < INIT_THETA1 - deg2rad(0.5))
-                    targetPose.theta1 = min(targetPose.theta1 + STEP, INIT_THETA1);
-                else if (targetPose.theta1 > INIT_THETA1 + deg2rad(0.5))
-                    targetPose.theta1 = max(targetPose.theta1 - STEP, INIT_THETA1);
-
-                if (targetPose.theta2 < INIT_THETA2 - deg2rad(0.5))
-                    targetPose.theta2 = min(targetPose.theta2 + STEP, INIT_THETA2);
-                else if (targetPose.theta2 > INIT_THETA2 + deg2rad(0.5))
-                    targetPose.theta2 = max(targetPose.theta2 - STEP, INIT_THETA2);
-
-                Serial.printf("Homing -> theta1: %.1f° theta2: %.1f°\n",
-                              targetPose.theta1 * 180.0/M_PI,
-                              targetPose.theta2 * 180.0/M_PI);
+            while (Serial.available()) {
+                int c = Serial.read();
+                if (c == 'g' || c == 'G') pickupArmed = true;
             }
 
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-            updateSetpointsWheels(0.0, 0.0);
+            bool dpad = controllerMessage.dPad.up;
+            if (dpad && !prevDpad) pickupArmed = true;
+            prevDpad = dpad;
 
-            double pos1 = -encoders[0].getPosition();
-            double pos2 =  encoders[3].getPosition();
-            bool atTarget = abs(pos1 - INIT_THETA1) < HOMING_TOL &&
-                            abs(pos2 - INIT_THETA2) < HOMING_TOL;
+            if (pickupArmed) Serial.println("=== PICKUP_TRAY armed — sequence starting ===");
 
-            if (atTarget || millis() - homingStart >= 15000) {
-                // Snap setpoint to current position (THETA_OFFSET after encoder
-                // reset) so the subsequent filtered drift to 0 is smooth.
-                encoders[0].resetPosition();
-                encoders[3].resetPosition();
-                resetArmPositionSetpoints();
-                targetPose.theta1 = 0.0;
-                targetPose.theta2 = 0.0;
-                homingDone = true;
-                lastIncrement = millis();
-                Serial.println("=== Homing done, pickup starting ===");
-            }
-            return;
-        }
-
-        // ─── Phase 1-2: lift arm over the table ──────────────────────
-        if (!firstForwardDone && millis() - lastIncrement >= 200) {
-            lastIncrement = millis();
-
-            if (targetPose.theta2 < deg2rad(20.0))
-                targetPose.theta2 = min(targetPose.theta2 + deg2rad(6.0), deg2rad(20.0));
-
-            if (targetPose.theta2 >= deg2rad(20.0) && targetPose.theta1 > deg2rad(-44.0))
-                targetPose.theta1 = max(targetPose.theta1 - deg2rad(6.0), deg2rad(-44.0));
-        }
-
-        updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-
-        // ─── Phase 3: open gripper, drive forward a short time ───────
-        if (targetPose.theta2 >= deg2rad(14.0) && !firstForwardDone) {
-            gripOpen();
-
-            if (!forwardStarted) {
-                forwardStarted = true;
-                firstForwardStartTime = millis();
-                Serial.println("=== GRIP OPEN + FIRST FORWARD ===");
-            }
-
-            if (millis() - firstForwardStartTime < 1400) {
-                double wheelVel = 0.08 / R_WHEEL;
-                updateSetpointsWheels(wheelVel, wheelVel);
-            } else {
-                firstForwardDone = true;
-                lastIncrement = millis();
-                updateSetpointsWheels(0, 0);
-            }
-            return;
-        }
-
-        // ─── Phase 4: lower arm onto the table ───────────────────────
-        if (firstForwardDone && !armAgainstTable) {
-            const double TABLE_RELATIVE_THETA2 = deg2rad(-16.0);
-            const double STEP = deg2rad(2.0);
-            const unsigned long STEP_INTERVAL = 200;
-
-            if (!tableResetDone) {
-                encoders[3].resetPosition();
-                resetArmPositionSetpoints();   // snap setpoint to measured pos
-                targetPose.theta2 = 0.0;       // new relative origin for this phase
-                tableResetDone = true;
-                lastIncrement = millis();
-            }
-
-            if (millis() - lastIncrement >= STEP_INTERVAL) {
-                lastIncrement = millis();
-                if (targetPose.theta2 > TABLE_RELATIVE_THETA2 + deg2rad(0.05)) {
-                    targetPose.theta2 = max(targetPose.theta2 - STEP, TABLE_RELATIVE_THETA2);
-                }
-            }
-
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-            updateSetpointsWheels(0, 0);
-
-            if (abs(targetPose.theta2 - TABLE_RELATIVE_THETA2) < deg2rad(0.5)) {
-                armAgainstTable = true;
-                secondForwardStartTime = millis();
-            }
-            return;
-        }
-
-        // ─── Phase 5: second forward drive to push under the tray ────
-        if (armAgainstTable && !forwardDone) {
-            if (millis() - secondForwardStartTime < 3000) {
-                double wheelVel = 0.08 / R_WHEEL;
-                updateSetpointsWheels(wheelVel, wheelVel);
-            } else {
-                forwardDone = true;
-                updateSetpointsWheels(0, 0);
-            }
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-        }
-
-        // ─── Phase 6: close gripper ──────────────────────────────────
-        if (forwardDone && !gripperClosed) {
-            gripClose();
-            gripperClosed = true;
-            gripperCloseTime = millis();
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
             updateSetpointsWheels(0, 0);
             return;
         }
 
-        // ─── Phase 7: back up while lifting arm ──────────────────────
-        if (gripperClosed && !backwardDone) {
-            const double THETA1_BACKWARD_TARGET = deg2rad(45.0);
-            const double THETA2_BACKWARD_TARGET = deg2rad(10.0);
-            const double STEP_THETA1 = deg2rad(5.0);
-            const double STEP_THETA2 = deg2rad(4.0);
-            const unsigned long STEP_INTERVAL = 200;
+        // ─── Absolute-frame joint targets ────────────────────────────
+        // All angles in positions[] frame (rad). Arm is vertical-up at
+        // boot: positions[0] = positions[3] = π/2.
+        //
+        // Sign convention assumption: decreasing absolute angle rotates
+        // the joint toward the chassis/forward (inferred empirically
+        // from the earlier frame-mismatched run where setpoint π/2→0
+        // swung the arm into the chassis). If hardware shows motion in
+        // the wrong direction, flip the sign of the offset in the
+        // relevant constant (e.g., M_PI/2 - X  ↔  M_PI/2 + X).
+        const double HOME_J1  = M_PI/2 - deg2rad(36.0);   // ≈  54°
+        const double HOME_J2  = M_PI/2 - deg2rad(100.0);  // ≈ -10°
+        const double LIFT_J1  = M_PI/2 - deg2rad(80.0);   // homed j1 - 44° lift
+        const double LIFT_J2  = M_PI/2 - deg2rad(80.0);   // homed j2 + 20° lift
+        const double TABLE_J1 = LIFT_J1;                  // hold j1
+        const double TABLE_J2 = LIFT_J2 - deg2rad(16.0);  // lower j2 onto table
+        const double LIFT2_J1 = LIFT_J1 + deg2rad(45.0);  // rise for reverse
+        const double LIFT2_J2 = TABLE_J2 + deg2rad(10.0); // rise for reverse
+        const double STOW_J1  = LIFT2_J1;                 // hold j1
+        const double STOW_J2  = LIFT2_J2 - deg2rad(10.0); // final droop
 
-            // Dwell 1 s after closing the gripper so the grip settles.
-            if (millis() - gripperCloseTime < 1000) {
-                updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
+        const double POSE_TOL = deg2rad(3.0);
+
+        enum Phase {
+            PH_HOME = 0, PH_LIFT, PH_FWD1, PH_TABLE, PH_FWD2,
+            PH_GRIP, PH_BACK, PH_STOW, PH_HOLD
+        };
+        static int phase = PH_HOME;
+        static unsigned long phaseStart = 0;
+        static bool phaseAnnounced = false;
+
+        auto enterPhase = [&](int next, const char *name) {
+            phase = next;
+            phaseStart = millis();
+            phaseAnnounced = false;
+            Serial.printf("=== Phase %d: %s ===\n", next, name);
+        };
+
+        auto atPose = [&](double j1, double j2) {
+            return fabs(positions[0] - j1) < POSE_TOL &&
+                   fabs(positions[3] - j2) < POSE_TOL;
+        };
+
+        // Initialize phaseStart on first armed tick.
+        if (phaseStart == 0) phaseStart = millis();
+
+        switch (phase) {
+            case PH_HOME: {
+                updateSetpointsArmsPosition(HOME_J1, HOME_J2);
                 updateSetpointsWheels(0, 0);
-                return;
-            }
-
-            if (!theta2BackwardResetDone) {
-                encoders[0].resetPosition();
-                encoders[3].resetPosition();
-                resetArmPositionSetpoints();
-                targetPose.theta1 = 0.0;
-                targetPose.theta2 = 0.0;
-                theta2BackwardResetDone = true;
-                lastIncrement = millis();
-                backwardStartTime = millis();
-                Serial.println("=== Arm reset, backward + lift starting ===");
-            }
-
-            if (millis() - lastIncrement >= STEP_INTERVAL) {
-                lastIncrement = millis();
-
-                if (targetPose.theta1 < THETA1_BACKWARD_TARGET - deg2rad(0.5)) {
-                    targetPose.theta1 = min(targetPose.theta1 + STEP_THETA1, THETA1_BACKWARD_TARGET);
+                if (atPose(HOME_J1, HOME_J2) || millis() - phaseStart >= 8000) {
+                    enterPhase(PH_LIFT, "LIFT");
                 }
-                if (targetPose.theta2 < THETA2_BACKWARD_TARGET - deg2rad(0.5)) {
-                    targetPose.theta2 = min(targetPose.theta2 + STEP_THETA2, THETA2_BACKWARD_TARGET);
-                }
-
-                Serial.printf("Backward arm -> theta1: %.1f deg | theta2: %.1f deg\n",
-                              targetPose.theta1 * 180.0 / M_PI,
-                              targetPose.theta2 * 180.0 / M_PI);
+                break;
             }
-
-            if (millis() - backwardStartTime < 7000) {
-                double wheelVel = -0.10 / R_WHEEL;
-                updateSetpointsWheels(wheelVel, wheelVel);
-            } else {
-                backwardDone = true;
+            case PH_LIFT: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
                 updateSetpointsWheels(0, 0);
-                Serial.println("=== Backward done, final hold ===");
+                if (atPose(LIFT_J1, LIFT_J2) || millis() - phaseStart >= 5000) {
+                    gripOpen();
+                    enterPhase(PH_FWD1, "FWD1 + grip open");
+                }
+                break;
             }
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-            return;
+            case PH_FWD1: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+                double wv = 0.08 / R_WHEEL;
+                updateSetpointsWheels(wv, wv);
+                if (millis() - phaseStart >= 1400) {
+                    updateSetpointsWheels(0, 0);
+                    enterPhase(PH_TABLE, "lower to table");
+                }
+                break;
+            }
+            case PH_TABLE: {
+                updateSetpointsArmsPosition(TABLE_J1, TABLE_J2);
+                updateSetpointsWheels(0, 0);
+                if (atPose(TABLE_J1, TABLE_J2) || millis() - phaseStart >= 4000) {
+                    enterPhase(PH_FWD2, "FWD2 under tray");
+                }
+                break;
+            }
+            case PH_FWD2: {
+                updateSetpointsArmsPosition(TABLE_J1, TABLE_J2);
+                double wv = 0.08 / R_WHEEL;
+                updateSetpointsWheels(wv, wv);
+                if (millis() - phaseStart >= 3000) {
+                    updateSetpointsWheels(0, 0);
+                    gripClose();
+                    enterPhase(PH_GRIP, "grip close + dwell");
+                }
+                break;
+            }
+            case PH_GRIP: {
+                updateSetpointsArmsPosition(TABLE_J1, TABLE_J2);
+                updateSetpointsWheels(0, 0);
+                if (millis() - phaseStart >= 1000) {
+                    enterPhase(PH_BACK, "back up + lift");
+                }
+                break;
+            }
+            case PH_BACK: {
+                updateSetpointsArmsPosition(LIFT2_J1, LIFT2_J2);
+                double wv = -0.10 / R_WHEEL;
+                updateSetpointsWheels(wv, wv);
+                if (millis() - phaseStart >= 7000) {
+                    updateSetpointsWheels(0, 0);
+                    enterPhase(PH_STOW, "stow arm");
+                }
+                break;
+            }
+            case PH_STOW: {
+                updateSetpointsArmsPosition(STOW_J1, STOW_J2);
+                updateSetpointsWheels(0, 0);
+                if (atPose(STOW_J1, STOW_J2) || millis() - phaseStart >= 4000) {
+                    enterPhase(PH_HOLD, "hold");
+                }
+                break;
+            }
+            default: { // PH_HOLD
+                updateSetpointsArmsPosition(STOW_J1, STOW_J2);
+                updateSetpointsWheels(0, 0);
+                break;
+            }
         }
 
-        // ─── Phase 8: drop arm back down to stow ─────────────────────
-        if (backwardDone && !finalTheta2Done) {
-            const double FINAL_THETA2_TARGET = deg2rad(-10.0);
-            const double STEP_THETA2 = deg2rad(2.0);
-            const unsigned long STEP_INTERVAL = 200;
-
-            if (!finalTheta2ResetDone) {
-                encoders[3].resetPosition();
-                resetArmPositionSetpoints();
-                targetPose.theta2 = 0.0;
-                finalTheta2ResetDone = true;
-                lastIncrement = millis();
-            }
-
-            if (millis() - lastIncrement >= STEP_INTERVAL) {
-                lastIncrement = millis();
-                if (targetPose.theta2 > FINAL_THETA2_TARGET + deg2rad(0.5)) {
-                    targetPose.theta2 = max(targetPose.theta2 - STEP_THETA2, FINAL_THETA2_TARGET);
-                }
-            }
-
-            updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-            updateSetpointsWheels(0, 0);
-
-            if (abs(targetPose.theta2 - FINAL_THETA2_TARGET) < deg2rad(0.5)) {
-                finalTheta2Done = true;
-            }
-            return;
+        // Log phase state once on entry and every ~1s thereafter.
+        static unsigned long lastPhaseLog = 0;
+        if (!phaseAnnounced || millis() - lastPhaseLog >= 1000) {
+            phaseAnnounced = true;
+            lastPhaseLog = millis();
+            Serial.printf("  phase=%d  j1=%.1f° j2=%.1f°\n",
+                          phase,
+                          positions[0] * 180.0 / M_PI,
+                          positions[3] * 180.0 / M_PI);
         }
 
-        // ─── Final hold ──────────────────────────────────────────────
-        updateSetpointsArmsPosition(targetPose.theta1, targetPose.theta2);
-        updateSetpointsWheels(0, 0);
         return;
     }
     #endif
