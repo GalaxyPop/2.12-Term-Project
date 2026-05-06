@@ -24,6 +24,7 @@ void updateSetpointsWheels(double left, double right);
 void updateSetpointsArmsPosition(double theta1, double theta2);
 void updateSetpointsArmsVelocity(double theta1_dot, double theta2_dot);
 void resetArmPositionSetpoints();
+void forceArmPositionSetpoints(double theta1, double theta2);
 void updatePIDs(bool armPositionControl);
 void updateArms(bool armPositionControl);
 void updateWheels();

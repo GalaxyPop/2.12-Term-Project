@@ -58,6 +58,14 @@ void resetArmPositionSetpoints() {
     positionSetpoints[3] = positions[3]; // link 2
 }
 
+// Hard-assign arm setpoints to explicit values. Pair with encoders[i].resetPosition()
+// to anchor a fresh reference frame between FSM phases. Unlike resetArmPositionSetpoints(),
+// this ignores the current measured position.
+void forceArmPositionSetpoints(double theta1, double theta2) {
+    positionSetpoints[0] = theta1; // link 1
+    positionSetpoints[3] = theta2; // link 2
+}
+
 void updatePIDs(bool armPositionControl) {
     updateArms(armPositionControl); // position control for arms if true, velocity control if false
     updateWheels(); // right and left wheels updated with velocity control
