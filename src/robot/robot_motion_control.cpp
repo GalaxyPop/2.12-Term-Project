@@ -13,8 +13,8 @@
 // #include "jetson_link.h"
 
 // #define AUTONOMOUS
-#define RAMP
-// #define PICKUP_TRAY
+// #define RAMP
+#define PICKUP_TRAY
 // #define PLACE_TRAY
 
 #if defined(RAMP) && (defined(PICKUP_TRAY) || defined(PLACE_TRAY))
@@ -80,6 +80,30 @@ void setWheelVelocities(float robotVelocity, float k){
 // released.
 
 void followTrajectory() {
+    // ─── Startup homing — runs once on boot regardless of mode ───────
+    static bool homingDone = false;
+    static unsigned long homingStart = 0;
+    if (!homingDone) {
+        armPositionControl = true;
+        if (freshWirelessData) freshWirelessData = false;
+        if (homingStart == 0) { homingStart = millis(); Serial.println("=== Homing ==="); }
+        const double J1 = M_PI/2 + 36.0 * M_PI / 180.0;
+        const double J2 = M_PI/2 - 110.0 * M_PI / 180.0;
+        updateSetpointsArmsPosition(J1, J2);
+        updateSetpointsWheels(0, 0);
+        bool atHome = fabs(positions[0] - J1) < deg2rad(3.0) &&
+                      fabs(positions[3] - J2) < deg2rad(3.0);
+        if (atHome || millis() - homingStart >= 8000) {
+            homingDone = true;
+            Serial.println("=== Homing complete ===");
+        }
+        return;
+    }
+
+    // Read serial once per tick — shared by all FSM trigger gates below.
+    int serialCmd = -1;
+    if (Serial.available()) serialCmd = Serial.read();
+
 #ifdef FSM_OWNS_MOTION
     // RAMP / PICKUP_TRAY own motion exclusively — drop any joystick packets
     // so the operator can't latch control mid-sequence.
@@ -239,14 +263,14 @@ void followTrajectory() {
                 Serial.println("=== PICKUP_TRAY idle — send 'g' over serial ===");
                 idleAnnounced = true;
             }
-            while (Serial.available()) {
-                int c = Serial.read();
-                if (c == 'g' || c == 'G') pickupArmed = true;
+            if (serialCmd == 'g' || serialCmd == 'G' ) {
+                pickupArmed = true;
+                Serial.println("=== PICKUP_TRAY armed — sequence starting ===");
             }
-            if (pickupArmed) Serial.println("=== PICKUP_TRAY armed — sequence starting ===");
-            updateSetpointsWheels(0, 0);
-            return;
+            // Not armed: fall through so PLACE_TRAY block can also run.
         }
+
+        if (pickupArmed) {
 
         // ─── Absolute-frame joint targets ────────────────────────────
         // All angles in positions[] frame (rad). Arm is vertical-up at
@@ -272,10 +296,10 @@ void followTrajectory() {
         const double POSE_TOL = deg2rad(3.0);
 
         enum Phase {
-            PH_HOME = 0, PH_LIFT, PH_FWD1, PH_TABLE, PH_FWD2,
+            PH_LIFT = 0, PH_FWD1, PH_TABLE, PH_FWD2,
             PH_GRIP, PH_BACK, PH_STOW, PH_HOLD
         };
-        static int phase = PH_HOME;
+        static int phase = PH_LIFT;
         static unsigned long phaseStart = 0;
         static bool phaseAnnounced = false;
 
@@ -295,14 +319,6 @@ void followTrajectory() {
         if (phaseStart == 0) phaseStart = millis();
 
         switch (phase) {
-            case PH_HOME: {
-                updateSetpointsArmsPosition(HOME_J1, HOME_J2);
-                updateSetpointsWheels(0, 0);
-                if (atPose(HOME_J1, HOME_J2) || millis() - phaseStart >= 8000) {
-                    enterPhase(PH_LIFT, "LIFT");
-                }
-                break;
-            }
             case PH_LIFT: {
                 updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
                 updateSetpointsWheels(0, 0);
@@ -366,9 +382,12 @@ void followTrajectory() {
                 }
                 break;
             }
-            default: { // PH_HOLD
+            default: { // PH_HOLD — sequence done, release so PLACE_TRAY can run
                 updateSetpointsArmsPosition(STOW_J1, STOW_J2);
                 updateSetpointsWheels(0, 0);
+                pickupArmed = false;
+                phase = PH_LIFT; // reset for a potential re-run
+                Serial.println("=== PICKUP_TRAY complete — send 'd' for PLACE or 'g' to repeat ===");
                 break;
             }
         }
@@ -383,8 +402,8 @@ void followTrajectory() {
                           positions[0] * 180.0 / M_PI,
                           positions[3] * 180.0 / M_PI);
         }
-
         return;
+        } // end if (pickupArmed)
     }
     #endif
 
@@ -400,10 +419,7 @@ void followTrajectory() {
                 Serial.println("=== PLACE_TRAY idle — send 'd' over serial ===");
                 idleAnnounced = true;
             }
-            while (Serial.available()) {
-                int c = Serial.read();
-                if (c == 'd' || c == 'D') placeArmed = true;
-            }
+            if (serialCmd == 'd' || serialCmd == 'D') placeArmed = true;
             if (placeArmed) Serial.println("=== PLACE_TRAY armed — sequence starting ===");
             updateSetpointsWheels(0, 0);
             return;
@@ -411,7 +427,7 @@ void followTrajectory() {
 
         // ─── Joint targets — tune these for your setup ────────────────
         const double LIFT_J1  = M_PI/2 - deg2rad(10.0); //was 30
-        const double LIFT_J2  = M_PI/2 + deg2rad(65.0);
+        const double LIFT_J2  = M_PI/2 - deg2rad(65.0);
         const double LOWER_J1 = LIFT_J1 - deg2rad(40.0);
         const double LOWER_J2 = LIFT_J2 - deg2rad(25.0);
 

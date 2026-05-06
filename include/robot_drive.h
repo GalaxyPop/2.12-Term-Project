@@ -17,7 +17,7 @@
 #define Kd_arm_2 0.03
 
 #define MAX_FORWARD 6
-#define MAX_TURN 3
+#define MAX_TURN 6
 
 void setupDrive();
 void updateSetpointsWheels(double left, double right);
