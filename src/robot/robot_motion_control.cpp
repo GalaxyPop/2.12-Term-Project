@@ -265,16 +265,16 @@ void followTrajectory() {
         // swung the arm into the chassis). If hardware shows motion in
         // the wrong direction, flip the sign of the offset in the
         // relevant constant (e.g., M_PI/2 - X  ↔  M_PI/2 + X).
-        const double HOME_J1  = M_PI/2 - deg2rad(36.0);   // ≈  54°
-        const double HOME_J2  = M_PI/2 - deg2rad(100.0);  // ≈ -10°
-        const double LIFT_J1  = M_PI/2 - deg2rad(80.0);   // homed j1 - 44° lift
-        const double LIFT_J2  = M_PI/2 - deg2rad(80.0);   // homed j2 + 20° lift
+        const double HOME_J1  = M_PI/2 + deg2rad(36.0);   // ≈  54°
+        const double HOME_J2  = M_PI/2 - deg2rad(110.0);  // ≈ -10°
+        const double LIFT_J1  = M_PI/2 - deg2rad(30.0);   // homed j1 - 44° lift
+        const double LIFT_J2  = M_PI/2 - deg2rad(60.0);   // homed j2 + 20° lift, was
         const double TABLE_J1 = LIFT_J1;                  // hold j1
-        const double TABLE_J2 = LIFT_J2 - deg2rad(16.0);  // lower j2 onto table
+        const double TABLE_J2 = LIFT_J2 - deg2rad(35.0);  // lower j2 onto table
         const double LIFT2_J1 = LIFT_J1 + deg2rad(45.0);  // rise for reverse
-        const double LIFT2_J2 = TABLE_J2 + deg2rad(10.0); // rise for reverse
-        const double STOW_J1  = LIFT2_J1;                 // hold j1
-        const double STOW_J2  = LIFT2_J2 - deg2rad(10.0); // final droop
+        const double LIFT2_J2 = TABLE_J2 + deg2rad(35.0); // rise for reverse
+        const double STOW_J1  = LIFT2_J1 + deg2rad(40.0);                 // hold j1, was 30
+        const double STOW_J2  = LIFT2_J2 - deg2rad(30.0); // final droop, was 10 
 
         const double POSE_TOL = deg2rad(3.0);
 
@@ -315,20 +315,19 @@ void followTrajectory() {
                 updateSetpointsWheels(0, 0);
                 if (atPose(LIFT_J1, LIFT_J2) || millis() - phaseStart >= 5000) {
                     gripOpen();
-                    enterPhase(PH_FWD1, "FWD1 + grip open");
-                }
-                break;
-            }
-            case PH_FWD1: {
-                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
-                double wv = 0.08 / R_WHEEL;
-                updateSetpointsWheels(wv, wv);
-                if (millis() - phaseStart >= 1400) {
-                    updateSetpointsWheels(0, 0);
                     enterPhase(PH_TABLE, "lower to table");
                 }
                 break;
             }
+            // case PH_FWD1: {
+            //     updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+            //     double wv = 0.1 / R_WHEEL; // need to be increased
+            //     updateSetpointsWheels(wv, wv);
+            //     if (millis() - phaseStart >= 1400) { // need to be increased 
+            //         enterPhase(PH_TABLE, "lower to table");
+            //     }
+            //     break;
+            // }
             case PH_TABLE: {
                 updateSetpointsArmsPosition(TABLE_J1, TABLE_J2);
                 updateSetpointsWheels(0, 0);
@@ -360,7 +359,7 @@ void followTrajectory() {
                 updateSetpointsArmsPosition(LIFT2_J1, LIFT2_J2);
                 double wv = -0.10 / R_WHEEL;
                 updateSetpointsWheels(wv, wv);
-                if (millis() - phaseStart >= 7000) {
+                if (millis() - phaseStart >= 4000) {
                     updateSetpointsWheels(0, 0);
                     enterPhase(PH_STOW, "stow arm");
                 }
