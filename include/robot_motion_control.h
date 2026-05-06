@@ -7,15 +7,5 @@ constexpr float B_BASE = 0.18288f;  // distance from back wheel to center in met
 void updateOdometry();
 void setWheelVelocities(float robotVelocity, float k);
 void followTrajectory();
-void setupIMU();
-void scanIMU();
-
-struct euler_t {
-    float yaw;
-    float pitch;
-    float roll;
-};
-
-extern euler_t ypr;
 
 #endif

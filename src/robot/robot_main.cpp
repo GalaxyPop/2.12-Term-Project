@@ -7,10 +7,11 @@
 #include "robot_autonomous.h"
 #include "jetson_link.h"
 #include "robot_pinout.h"
-#include "mcpwm.h"
 #include "servo_control.h"
+#include "robot_imu.h"
 
 extern TaskSpace targetXY;
+extern bool armPositionControl; // if true, arm's position will be controlled by joystick inputs
 
 void setup() {
     // Serial.begin(921600);
@@ -19,20 +20,18 @@ void setup() {
     while (!Serial && (millis() - t0 < 3000)) {
         delay(10);
     }
-    setupDrive();
-    setupWireless();
-    setupDrive();
-    setupServo();
-    delay(1000);
-    gripClose();
-    setupAutonomous();
-    setupJetsonLink();
+    setupServo(); // end effector
+    setupDrive(); // arms and wheels
+    setupWireless(); // wireless comms
+    setupAutonomous(); // autonomous sequence
+    setupIMU(); // orientation sensing
+    // setupJetsonLink();
 }
 
 void loop() {
     // Must run every iteration — at 921600 the USB-CDC ring fills fast,
     // and gating the reader behind EVERY_N_MILLIS drops bytes mid-packet.
-    handleJetsonSerial();
+    // handleJetsonSerial();
 
     EVERY_N_MILLIS(20) {
         scanIMU();
@@ -40,7 +39,7 @@ void loop() {
     }
 
     EVERY_N_MILLIS(5) {
-        updatePIDs();
+        updatePIDs(armPositionControl);
     }
 
     EVERY_N_MILLIS(50) {
@@ -48,7 +47,7 @@ void loop() {
         sendRobotData();
     }
 
-    EVERY_N_MILLIS(20) {
-        sendJetsonTelemetry();
-    }
+    // EVERY_N_MILLIS(20) {
+    //     sendJetsonTelemetry();
+    // }
 }

@@ -6,31 +6,28 @@
 #define Kp_wheels 0.25
 #define Ki_wheels 0.01
 #define Kd_wheels 0
-
-// #define Kp_arm_1 1
-// #define Ki_arm_1 0
-// #define Kd_arm_1 0.05
 #define pidTau 0.1
 
-#define Kp_arm_1 10
-#define Ki_arm_1 0.1
-#define Kd_arm_1 0.15
-#define pidTau_arm 0.05
+#define Kp_arm_1 1
+#define Ki_arm_1 0
+#define Kd_arm_1 0.03
 
-#define Kp_arm_2 10
-#define Ki_arm_2 0.1
-#define Kd_arm_2 0.15
+#define Kp_arm_2 1
+#define Ki_arm_2 0
+#define Kd_arm_2 0.03
 
 #define MAX_FORWARD 6
 #define MAX_TURN 3
 
 void setupDrive();
 void updateSetpointsWheels(double left, double right);
-void updateSetpointsArms(double theta1, double theta2);
-void resetArmSetpoints(double t1, double t2);
-void updatePIDs();
-void updateArms(bool positionControl);
-void updateWheels(int i);
+void updateSetpointsArmsPosition(double theta1, double theta2);
+void updateSetpointsArmsVelocity(double theta1_dot, double theta2_dot);
+void resetArmPositionSetpoints();
+void forceArmPositionSetpoints(double theta1, double theta2);
+void updatePIDs(bool armPositionControl);
+void updateArms(bool armPositionControl);
+void updateWheels();
 void computeGravity(double theta1, double theta2, double &tau1, double &tau2);
 
 // Map body-frame (v, w) [m/s, rad/s] to left/right wheel setpoints [rad/s].

@@ -7,8 +7,6 @@
 #define JOYSTICK2_Y_PIN 5 // 5
 #define BUTTON_L_PIN 7
 #define BUTTON_R_PIN 13
-// #define TFT_CS_PIN 12
-// #define TFT_DC_PIN 13
 
 // Servo Analog pin
 #define SERVO A0
