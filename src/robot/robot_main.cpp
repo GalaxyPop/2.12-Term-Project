@@ -14,7 +14,7 @@ extern TaskSpace targetXY;
 extern bool armPositionControl; // if true, arm's position will be controlled by joystick inputs
 
 void setup() {
-    // Serial.begin(921600);
+    Serial.begin(921600);
     // USB CDC on ESP32-S3: wait for host or time out after 3 s.
     unsigned long t0 = millis();
     while (!Serial && (millis() - t0 < 3000)) {

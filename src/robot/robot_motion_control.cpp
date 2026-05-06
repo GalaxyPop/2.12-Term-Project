@@ -13,14 +13,15 @@
 // #include "jetson_link.h"
 
 // #define AUTONOMOUS
-// #define RAMP
-#define PICKUP_TRAY
+#define RAMP
+// #define PICKUP_TRAY
+// #define PLACE_TRAY
 
-#if defined(RAMP) && defined(PICKUP_TRAY)
-    #error "Define only one of RAMP or PICKUP_TRAY at a time."
+#if defined(RAMP) && (defined(PICKUP_TRAY) || defined(PLACE_TRAY))
+    #error "RAMP cannot be combined with PICKUP_TRAY or PLACE_TRAY."
 #endif
 
-#if defined(RAMP) || defined(PICKUP_TRAY)
+#if defined(RAMP) || defined(PICKUP_TRAY) || defined(PLACE_TRAY)
     #define FSM_OWNS_MOTION
 #endif
 
@@ -163,7 +164,7 @@ void followTrajectory() {
                 // Climb ramp — tuned so the back wheels don't slip at ramp start.
                 robotVelocity = 0.4;
                 k = 0;
-                if (dist >= 0.33) {
+                if (dist >= 0.1) {
                     rampState++;
                     rampStartX = robotMessage.x;
                     rampStartY = robotMessage.y;
@@ -232,25 +233,17 @@ void followTrajectory() {
         //       enabled in robot_main.cpp — they share Serial.read().
         static bool pickupArmed = false;
         static bool idleAnnounced = false;
-        static bool prevDpad = false;
 
         if (!pickupArmed) {
             if (!idleAnnounced) {
-                Serial.println("=== PICKUP_TRAY idle — send 'g' over serial or press D-pad UP ===");
+                Serial.println("=== PICKUP_TRAY idle — send 'g' over serial ===");
                 idleAnnounced = true;
             }
-
             while (Serial.available()) {
                 int c = Serial.read();
                 if (c == 'g' || c == 'G') pickupArmed = true;
             }
-
-            bool dpad = controllerMessage.dPad.up;
-            if (dpad && !prevDpad) pickupArmed = true;
-            prevDpad = dpad;
-
             if (pickupArmed) Serial.println("=== PICKUP_TRAY armed — sequence starting ===");
-
             updateSetpointsWheels(0, 0);
             return;
         }
@@ -391,6 +384,120 @@ void followTrajectory() {
                           positions[3] * 180.0 / M_PI);
         }
 
+        return;
+    }
+    #endif
+
+    #ifdef PLACE_TRAY
+    {
+        armPositionControl = true;
+
+        static bool placeArmed = false;
+        static bool idleAnnounced = false;
+
+        if (!placeArmed) {
+            if (!idleAnnounced) {
+                Serial.println("=== PLACE_TRAY idle — send 'd' over serial ===");
+                idleAnnounced = true;
+            }
+            while (Serial.available()) {
+                int c = Serial.read();
+                if (c == 'd' || c == 'D') placeArmed = true;
+            }
+            if (placeArmed) Serial.println("=== PLACE_TRAY armed — sequence starting ===");
+            updateSetpointsWheels(0, 0);
+            return;
+        }
+
+        // ─── Joint targets — tune these for your setup ────────────────
+        const double LIFT_J1  = M_PI/2 - deg2rad(10.0); //was 30
+        const double LIFT_J2  = M_PI/2 + deg2rad(65.0);
+        const double LOWER_J1 = LIFT_J1 - deg2rad(40.0);
+        const double LOWER_J2 = LIFT_J2 - deg2rad(25.0);
+
+        const double POSE_TOL = deg2rad(3.0);
+
+        enum Phase { PH_GRIP = 0, PH_LIFT, PH_FWD, PH_LOWER, PH_OPEN, PH_BACK, PH_HOLD };
+        static int phase = PH_GRIP;
+        static unsigned long phaseStart = 0;
+        static bool phaseAnnounced = false;
+
+        auto enterPhase = [&](int next, const char *name) {
+            phase = next; phaseStart = millis(); phaseAnnounced = false;
+            Serial.printf("=== Phase %d: %s ===\n", next, name);
+        };
+        auto atPose = [&](double j1, double j2) {
+            return fabs(positions[0] - j1) < POSE_TOL &&
+                   fabs(positions[3] - j2) < POSE_TOL;
+        };
+
+        if (phaseStart == 0) phaseStart = millis();
+
+        switch (phase) {
+            case PH_GRIP: {
+                gripClose();
+                updateSetpointsWheels(0, 0);
+                if (millis() - phaseStart >= 1000)
+                    enterPhase(PH_LIFT, "LIFT");
+                break;
+            }
+            case PH_LIFT: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+                updateSetpointsWheels(0, 0);
+                if (atPose(LIFT_J1, LIFT_J2) || millis() - phaseStart >= 5000)
+                    enterPhase(PH_FWD, "FWD to table");
+                break;
+            }
+            case PH_FWD: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+                double wv = 0.1 / R_WHEEL;
+                updateSetpointsWheels(wv, wv);
+                if (millis() - phaseStart >= 12000) {
+                    updateSetpointsWheels(0, 0);
+                    enterPhase(PH_LOWER, "lower to table");
+                }
+                break;
+            }
+            case PH_LOWER: {
+                updateSetpointsArmsPosition(LOWER_J1, LOWER_J2);
+                updateSetpointsWheels(0, 0);
+                if (atPose(LOWER_J1, LOWER_J2) || millis() - phaseStart >= 4000)
+                    enterPhase(PH_OPEN, "open grip");
+                break;
+            }
+            case PH_OPEN: {
+                updateSetpointsArmsPosition(LOWER_J1, LOWER_J2);
+                updateSetpointsWheels(0, 0);
+                gripOpen();
+                if (millis() - phaseStart >= 1000)
+                    enterPhase(PH_BACK, "back up");
+                break;
+            }
+            case PH_BACK: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+                double wv = -0.10 / R_WHEEL;
+                updateSetpointsWheels(wv, wv);
+                if (millis() - phaseStart >= 3000) {
+                    updateSetpointsWheels(0, 0);
+                    enterPhase(PH_HOLD, "hold");
+                }
+                break;
+            }
+            default: {
+                updateSetpointsArmsPosition(LIFT_J1, LIFT_J2);
+                updateSetpointsWheels(0, 0);
+                break;
+            }
+        }
+
+        static unsigned long lastPhaseLog = 0;
+        if (!phaseAnnounced || millis() - lastPhaseLog >= 1000) {
+            phaseAnnounced = true; lastPhaseLog = millis();
+            Serial.printf("  phase=%d  j1=%.1f° j2=%.1f°\n",
+                          phase,
+                          positions[0] * 180.0 / M_PI,
+                          positions[3] * 180.0 / M_PI);
+        }
         return;
     }
     #endif
