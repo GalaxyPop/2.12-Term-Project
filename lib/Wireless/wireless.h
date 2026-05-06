@@ -22,6 +22,12 @@ struct ControllerMessage { //This struct is defined for a complex controller, bu
     bool buttonL;
     bool buttonR;
     TouchReading touchPoint;
+    bool dpadUp;
+    bool dpadDown;
+    bool dpadLeft;
+    bool dpadRight;
+    bool dpadSelect;
+    int32_t encoderPosition;
 
     void print();
     bool operator==(const ControllerMessage& other);
